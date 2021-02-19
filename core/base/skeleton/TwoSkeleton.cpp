@@ -309,7 +309,7 @@ int TwoSkeleton::buildTriangleList(
     vector<vector<pair<vector<SimplexId>, SimplexId>>> triangleTable(
       vertexNumber);
 
-    const SimplexId timeBuckets = std::min(10, cellNumber);
+    const SimplexId timeBuckets = std::min<ttk::SimplexId>(10, cellNumber);
 
     for(SimplexId i = 0; i < vertexNumber; i++)
       triangleTable[i].reserve(32);
@@ -348,7 +348,6 @@ int TwoSkeleton::buildTriangleList(
             triangleNumber++;
 
             if(triangleList) {
-              triangleList->size();
               triangleList->push_back(triangle);
             }
             if(triangleStars) {
@@ -469,7 +468,7 @@ int TwoSkeleton::buildTriangleList(
         }
 
         // update the progress bar of the wrapping code -- to adapt
-        if(debugLevel_ > advancedInfoMsg) {
+        if(debugLevel_ > static_cast<int>(debug::Priority::DETAIL)) {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp critical
 #endif

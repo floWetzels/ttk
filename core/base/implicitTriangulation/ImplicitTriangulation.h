@@ -15,10 +15,6 @@
 // base code includes
 #include <AbstractTriangulation.h>
 
-#ifdef _WIN32
-#include <ciso646>
-#endif
-
 namespace ttk {
 
   class ImplicitTriangulation final : public AbstractTriangulation {
@@ -326,7 +322,7 @@ namespace ttk {
     bool TTK_TRIANGULATION_INTERNAL(isEdgeOnBoundary)(
       const SimplexId &edgeId) const override;
 
-    bool isEmptyInternal() const {
+    inline bool isEmpty() const override {
       return !vertexNumber_;
     };
 

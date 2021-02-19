@@ -24,6 +24,24 @@
 /// \param Output2 Output 2-separatrices (vtkUnstructuredGrid)
 /// \param Output3 Output data segmentation (vtkDataSet)
 ///
+/// The input data array needs to be specified via the standard VTK call
+/// vtkAlgorithm::SetInputArrayToProcess() with the following parameters:
+/// \param idx 0 (FIXED: the first array the algorithm requires)
+/// \param port 0 (FIXED: first port)
+/// \param connection 0 (FIXED: first connection)
+/// \param fieldAssociation 0 (FIXED: point data)
+/// \param arrayName (DYNAMIC: string identifier of the input array)
+///
+/// The optional offset array can be specified via the standard VTK call
+/// vtkAlgorithm::SetInputArrayToProcess() with the following parameters:
+/// \param idx 1 (FIXED: the second array the algorithm requires)
+/// \param port 0 (FIXED: first port)
+/// \param connection 0 (FIXED: first connection)
+/// \param fieldAssociation 0 (FIXED: point data)
+/// \param arrayName (DYNAMIC: string identifier of the offset array)
+/// \note: To use this optional array, `ForceInputOffsetScalarField` needs to be
+/// enabled with the setter `setForceInputOffsetScalarField()'.
+///
 /// This filter can be used as any other VTK filter (for instance, by using the
 /// sequence of calls SetInputData(), Update(), GetOutput()).
 ///
@@ -32,75 +50,29 @@
 ///
 /// \sa ttk::MorseSmaleComplex
 ///
-#ifndef _TTK_MORSESMALECOMPLEX_H
-#define _TTK_MORSESMALECOMPLEX_H
 
-// VTK includes -- to adapt
-#include <vtkCellData.h>
-#include <vtkCharArray.h>
-#include <vtkDataArray.h>
-#include <vtkDataSet.h>
-#include <vtkDataSetAlgorithm.h>
-#include <vtkDoubleArray.h>
-#include <vtkFiltersCoreModule.h>
-#include <vtkFloatArray.h>
-#include <vtkInformation.h>
-#include <vtkInformationVector.h>
-#include <vtkIntArray.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
+#pragma once
 
 // VTK Module
 #include <ttkMorseSmaleComplexModule.h>
 
 // ttk code includes
 #include <MorseSmaleComplex.h>
-#include <ttkTriangulationAlgorithm.h>
+#include <ttkAlgorithm.h>
+
+class vtkUnstructuredGrid;
 
 class TTKMORSESMALECOMPLEX_EXPORT ttkMorseSmaleComplex
-  : public vtkDataSetAlgorithm,
-    protected ttk::Wrapper {
+  : public ttkAlgorithm,
+    protected ttk::MorseSmaleComplex {
 
 public:
   static ttkMorseSmaleComplex *New();
 
-  vtkTypeMacro(ttkMorseSmaleComplex, vtkDataSetAlgorithm);
-
-  // default ttk setters
-  void SetDebugLevel(int debugLevel) {
-    setDebugLevel(debugLevel);
-    Modified();
-  }
-
-  void SetThreadNumber(int threadNumber) {
-    ThreadNumber = threadNumber;
-    SetThreads();
-  }
-
-  void SetUseAllCores(bool onOff) {
-    UseAllCores = onOff;
-    SetThreads();
-  }
-  // end of default ttk setters
-
-  vtkSetMacro(ScalarField, std::string);
-  vtkGetMacro(ScalarField, std::string);
-
-  vtkSetMacro(ScalarFieldId, int);
-  vtkGetMacro(ScalarFieldId, int);
-
-  vtkSetMacro(OffsetFieldId, int);
-  vtkGetMacro(OffsetFieldId, int);
+  vtkTypeMacro(ttkMorseSmaleComplex, ttkAlgorithm);
 
   vtkSetMacro(ForceInputOffsetScalarField, bool);
   vtkGetMacro(ForceInputOffsetScalarField, bool);
-
-  vtkSetMacro(InputOffsetScalarFieldName, std::string);
-  vtkGetMacro(InputOffsetScalarFieldName, std::string);
-
-  vtkSetMacro(PeriodicBoundaryConditions, int);
-  vtkGetMacro(PeriodicBoundaryConditions, int);
 
   vtkSetMacro(IterationThreshold, int);
   vtkGetMacro(IterationThreshold, int);
@@ -138,51 +110,70 @@ public:
   vtkSetMacro(SaddleConnectorsPersistenceThreshold, double);
   vtkGetMacro(SaddleConnectorsPersistenceThreshold, double);
 
-  int setupTriangulation(vtkDataSet *input);
-  vtkDataArray *getScalars(vtkDataSet *input);
-  vtkDataArray *getOffsets(vtkDataSet *input);
-
 protected:
-  template <typename VTK_TT>
-  int dispatch(vtkDataArray *inputScalars,
-               vtkDataArray *inputOffsets,
-               vtkUnstructuredGrid *outputCriticalPoints,
-               vtkUnstructuredGrid *outputSeparatrices1,
-               vtkUnstructuredGrid *outputSeparatrices2);
+  template <typename scalarType, typename triangulationType>
+  int dispatch(vtkDataArray *const inputScalars,
+               vtkDataArray *const inputOffsets,
+               vtkUnstructuredGrid *const outputCriticalPoints,
+               vtkUnstructuredGrid *const outputSeparatrices1,
+               vtkUnstructuredGrid *const outputSeparatrices2,
+               const triangulationType &triangulation);
 
   ttkMorseSmaleComplex();
-  ~ttkMorseSmaleComplex() override;
 
-  TTK_SETUP();
-
-  virtual int FillInputPortInformation(int port, vtkInformation *info) override;
-  virtual int FillOutputPortInformation(int port,
-                                        vtkInformation *info) override;
+  int FillInputPortInformation(int port, vtkInformation *info) override;
+  int FillOutputPortInformation(int port, vtkInformation *info) override;
+  int RequestData(vtkInformation *request,
+                  vtkInformationVector **inputVector,
+                  vtkInformationVector *outputVector) override;
 
 private:
-  std::string ScalarField;
-  std::string InputOffsetScalarFieldName;
-  bool ForceInputOffsetScalarField;
-  bool PeriodicBoundaryConditions;
-  int IterationThreshold;
-  bool ComputeCriticalPoints;
-  bool ComputeAscendingSeparatrices1;
-  bool ComputeDescendingSeparatrices1;
-  bool ComputeSaddleConnectors;
-  bool ComputeAscendingSeparatrices2;
-  bool ComputeDescendingSeparatrices2;
-  bool ComputeAscendingSegmentation;
-  bool ComputeDescendingSegmentation;
-  bool ComputeFinalSegmentation;
-  int ScalarFieldId;
-  int OffsetFieldId;
-  int ReturnSaddleConnectors;
-  double SaddleConnectorsPersistenceThreshold;
+  bool ForceInputOffsetScalarField{};
+  int IterationThreshold{-1};
+  bool ComputeCriticalPoints{true};
+  bool ComputeAscendingSeparatrices1{true};
+  bool ComputeDescendingSeparatrices1{true};
+  bool ComputeSaddleConnectors{true};
+  bool ComputeAscendingSeparatrices2{false};
+  bool ComputeDescendingSeparatrices2{false};
+  bool ComputeAscendingSegmentation{true};
+  bool ComputeDescendingSegmentation{true};
+  bool ComputeFinalSegmentation{true};
+  int ReturnSaddleConnectors{false};
+  double SaddleConnectorsPersistenceThreshold{0.0};
 
-  ttk::MorseSmaleComplex morseSmaleComplex_;
-  ttk::Triangulation *triangulation_;
-  vtkDataArray *defaultOffsets_;
-  bool hasUpdatedMesh_;
+  // critical points
+  std::vector<float> criticalPoints_points{};
+  std::vector<char> criticalPoints_points_cellDimensions{};
+  std::vector<ttk::SimplexId> criticalPoints_points_cellIds{};
+  std::vector<char> criticalPoints_points_isOnBoundary{};
+  std::vector<ttk::SimplexId> criticalPoints_points_PLVertexIdentifiers{};
+  std::vector<ttk::SimplexId> criticalPoints_points_manifoldSize{};
+
+  // 1-separatrices data
+  std::vector<float> separatrices1_points{};
+  std::vector<char> separatrices1_points_smoothingMask{};
+  std::vector<char> separatrices1_points_cellDimensions{};
+  std::vector<ttk::SimplexId> separatrices1_points_cellIds{};
+  std::vector<vtkIdType> separatrices1_cells_connectivity{};
+  std::vector<ttk::SimplexId> separatrices1_cells_sourceIds{};
+  std::vector<ttk::SimplexId> separatrices1_cells_destinationIds{};
+  std::vector<ttk::SimplexId> separatrices1_cells_separatrixIds{};
+  std::vector<char> separatrices1_cells_separatrixTypes{};
+  std::vector<char> separatrices1_cells_isOnBoundary{};
+  std::vector<double> separatrices1_cells_separatrixFunctionMaxima{};
+  std::vector<double> separatrices1_cells_separatrixFunctionMinima{};
+  std::vector<double> separatrices1_cells_separatrixFunctionDiffs{};
+
+  // 2-separatrices data
+  std::vector<float> separatrices2_points{};
+  std::vector<vtkIdType> separatrices2_cells_offsets{};
+  std::vector<vtkIdType> separatrices2_cells_connectivity{};
+  std::vector<ttk::SimplexId> separatrices2_cells_sourceIds{};
+  std::vector<ttk::SimplexId> separatrices2_cells_separatrixIds{};
+  std::vector<char> separatrices2_cells_separatrixTypes{};
+  std::vector<char> separatrices2_cells_isOnBoundary{};
+  std::vector<double> separatrices2_cells_separatrixFunctionMaxima{};
+  std::vector<double> separatrices2_cells_separatrixFunctionMinima{};
+  std::vector<double> separatrices2_cells_separatrixFunctionDiffs{};
 };
-
-#endif // _TTK_MORSESMALECOMPLEX_H

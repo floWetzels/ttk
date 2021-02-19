@@ -52,7 +52,7 @@ namespace ttk {
 #endif
     }
 
-    FTMAtomicVector(FTMAtomicVector &&other) = default;
+    FTMAtomicVector(FTMAtomicVector &&other) noexcept = default;
 
     virtual ~FTMAtomicVector() = default;
 
@@ -131,6 +131,7 @@ namespace ttk {
     FTMAtomicVector<type> &operator=(const FTMAtomicVector<type> &other) {
       std::vector<type>::operator=(other);
       nextId = other.nextId;
+      return *this;
     }
 
     // ---------

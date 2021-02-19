@@ -1,6 +1,7 @@
 NAME
- ttkRangePolygon
+  ttkRangePolygon
 DEPENDS
-  VTK::FiltersCore
+  ttkAlgorithm
 PRIVATE_DEPENDS
-  VTK::CommonCore
+  VTK::FiltersGeneral
+  VTK::FiltersGeometry

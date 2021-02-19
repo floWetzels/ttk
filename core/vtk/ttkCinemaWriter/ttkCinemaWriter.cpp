@@ -2,9 +2,11 @@
 
 #include <vtkInformation.h>
 
+#include <vtkDataArray.h>
 #include <vtkDirectory.h>
 #include <vtkFieldData.h>
 #include <vtkImageData.h>
+#include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkStdString.h>
 #include <vtkStringArray.h>
@@ -104,12 +106,16 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
     = vtkXMLDataObjectWriter::NewWriter(input->GetDataObjectType());
   xmlWriter->SetDataModeToAppended();
   xmlWriter->SetCompressorTypeToZLib();
-  vtkZLibDataCompressor::SafeDownCast(xmlWriter->GetCompressor())
-    ->SetCompressionLevel(this->CompressionLevel);
+  const auto compressor
+    = vtkZLibDataCompressor::SafeDownCast(xmlWriter->GetCompressor());
+  if(compressor != nullptr) {
+    compressor->SetCompressionLevel(this->CompressionLevel);
+  }
 
   std::string productExtension = this->Mode == 0
                                    ? xmlWriter->GetDefaultFileExtension()
-                                   : this->Mode == 1 ? "png" : "ttk";
+                                 : this->Mode == 1 ? "png"
+                                                   : "ttk";
 
   // -------------------------------------------------------------------------
   // Prepare Field Data
@@ -241,7 +247,7 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
     boost::interprocess::file_lock flock(csvPath.data());
     try {
       // flock.lock();
-    } catch(boost::interprocess::interprocess_exception &e) {
+    } catch(boost::interprocess::interprocess_exception &) {
       this->printErr("Unable to initialize write lock.");
       return 0;
     }
@@ -442,8 +448,14 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
           "Cannot use Topological Compression without a vtkImageData");
         return 0;
       }
+
+      const auto inputData = vtkImageData::SafeDownCast(input);
+      const auto sf = this->GetInputArrayToProcess(0, inputData);
+
       vtkNew<ttkTopologicalCompressionWriter> topologicalCompressionWriter{};
-      topologicalCompressionWriter->SetScalarField(this->ScalarField);
+      topologicalCompressionWriter->SetInputArrayToProcess(
+        0, 0, 0, 0, sf->GetName());
+
       topologicalCompressionWriter->SetTolerance(this->Tolerance);
       topologicalCompressionWriter->SetMaximumError(this->MaximumError);
       topologicalCompressionWriter->SetZFPBitBudget(this->ZFPBitBudget);
@@ -454,13 +466,6 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
       topologicalCompressionWriter->SetUseTopologicalSimplification(
         this->UseTopologicalSimplification);
 
-      if(ScalarField.empty()) {
-        vtkErrorMacro("Need a scalar field for Topological Compression");
-        return 0;
-      }
-      const auto inputData = vtkImageData::SafeDownCast(input);
-      const auto sf = inputData->GetPointData()->GetArray(ScalarField.data());
-
       // Check that input scalar field is indeed scalar
       if(sf->GetNumberOfComponents() != 1) {
         vtkErrorMacro("Input scalar field should have only 1 component");
@@ -470,7 +475,7 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
       topologicalCompressionWriter->SetFileName(
         (this->DatabasePath + "/" + rDataProductPath).data());
       topologicalCompressionWriter->SetInputData(inputData);
-      topologicalCompressionWriter->WriteData();
+      topologicalCompressionWriter->Write();
     }
 
     this->printMsg("Writing data product to disk", 1, t.getElapsedTime(),
@@ -488,8 +493,9 @@ int ttkCinemaWriter::RequestData(vtkInformation *request,
 
   // Print Status
   {
-    std::string modeS
-      = this->Mode == 0 ? "VTK" : this->Mode == 1 ? "PNG" : "TTK";
+    std::string modeS = this->Mode == 0   ? "VTK"
+                        : this->Mode == 1 ? "PNG"
+                                          : "TTK";
     this->printMsg({{"Database", this->DatabasePath},
                     {"C. Level", std::to_string(this->CompressionLevel)},
                     {"Format", modeS},

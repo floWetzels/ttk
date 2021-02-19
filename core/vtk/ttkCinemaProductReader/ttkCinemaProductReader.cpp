@@ -4,6 +4,7 @@
 
 #include <vtkDoubleArray.h>
 #include <vtkFieldData.h>
+#include <vtkImageData.h>
 #include <vtkMultiBlockDataSet.h>
 #include <vtkStringArray.h>
 #include <vtkTable.h>

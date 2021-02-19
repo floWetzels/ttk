@@ -1,6 +1,8 @@
 # Hidden files
 .*
+!.devcontainer
 !.gitignore
+!.github
 
 # Temporary and backup files
 \#*\#

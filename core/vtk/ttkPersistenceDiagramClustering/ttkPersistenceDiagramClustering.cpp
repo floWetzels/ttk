@@ -3,12 +3,11 @@
 #include <ttkUtils.h>
 #include <vtkFieldData.h>
 
-using namespace std;
 using namespace ttk;
 
-vtkStandardNewMacro(ttkPersistenceDiagramClustering)
+vtkStandardNewMacro(ttkPersistenceDiagramClustering);
 
-  ttkPersistenceDiagramClustering::ttkPersistenceDiagramClustering() {
+ttkPersistenceDiagramClustering::ttkPersistenceDiagramClustering() {
   SetNumberOfInputPorts(1);
   SetNumberOfOutputPorts(3);
 }
@@ -29,6 +28,11 @@ int ttkPersistenceDiagramClustering::FillOutputPortInformation(
   else
     return 0;
   return 1;
+}
+
+void ttkPersistenceDiagramClustering::Modified() {
+  needUpdate_ = true;
+  ttkAlgorithm::Modified();
 }
 
 // to adapt if your wrapper does not inherit from vtkDataSetAlgorithm
@@ -75,7 +79,6 @@ int ttkPersistenceDiagramClustering::RequestData(
     all_matchings_.resize(3);
 
     max_dimension_total_ = 0;
-    this->setNumberOfInputs(numInputs);
     for(int i = 0; i < numInputs; i++) {
       double max_dimension
         = getPersistenceDiagram(intermediateDiagrams_[i], input[i]);
@@ -109,7 +112,7 @@ int ttkPersistenceDiagramClustering::RequestData(
       PersistenceDiagramBarycenter<double> persistenceDiagramsBarycenter;
       // persistenceDiagramsBarycenter.setWrapper(this);
 
-      string wassersteinMetric = std::to_string(WassersteinMetric);
+      std::string wassersteinMetric = std::to_string(WassersteinMetric);
       persistenceDiagramsBarycenter.setWasserstein(wassersteinMetric);
       persistenceDiagramsBarycenter.setMethod(2);
       persistenceDiagramsBarycenter.setNumberOfInputs(numInputs);
@@ -205,6 +208,10 @@ double ttkPersistenceDiagramClustering::getPersistenceDiagram(
       pairIdentifierScalars->SetTuple(pair_index, &index_of_pair);
   }
 
+  // If diagram has the diagonal (we assume it is last)
+  if(*pairIdentifierScalars->GetTuple(pairingsSize - 1) == -1)
+    pairingsSize -= 1;
+
 #ifndef TTK_ENABLE_KAMIKAZE
   if(pairingsSize < 1 || !vertexIdentifierScalars || !pairIdentifierScalars
      || !nodeTypeScalars || !persistenceScalars || !extremumIndexScalars
@@ -222,7 +229,7 @@ double ttkPersistenceDiagramClustering::getPersistenceDiagram(
   double max_dimension = 0;
 
   // skip diagonal cell (corresponding points already dealt with)
-  for(int i = 0; i < pairingsSize - 1; ++i) {
+  for(int i = 0; i < pairingsSize; ++i) {
 
     int vertexId1 = vertexIdentifierScalars->GetValue(2 * i);
     int vertexId2 = vertexIdentifierScalars->GetValue(2 * i + 1);
@@ -287,9 +294,9 @@ double ttkPersistenceDiagramClustering::getPersistenceDiagram(
       nbNonCompact++;
       if(nbNonCompact == 0) {
         std::stringstream msg;
-        msg << "[TTKPersistenceDiagramClustering] Diagram pair identifiers "
+        msg << "Diagram pair identifiers "
             << "must be compact (not exceed the diagram size). " << std::endl;
-        dMsg(std::cout, msg.str(), timeMsg);
+        this->printWrn(msg.str());
       }
     }
   }
@@ -297,9 +304,9 @@ double ttkPersistenceDiagramClustering::getPersistenceDiagram(
   if(nbNonCompact > 0) {
     {
       std::stringstream msg;
-      msg << "[TTKPersistenceDiagramClustering] Missed " << nbNonCompact
-          << " pairs due to non-compactness." << std::endl;
-      dMsg(std::cout, msg.str(), timeMsg);
+      msg << "Missed " << nbNonCompact << " pairs due to non-compactness."
+          << std::endl;
+      this->printWrn(msg.str());
     }
   }
 
@@ -308,10 +315,7 @@ double ttkPersistenceDiagramClustering::getPersistenceDiagram(
 
 vtkSmartPointer<vtkUnstructuredGrid>
   ttkPersistenceDiagramClustering::createOutputCentroids() {
-  if(debugLevel_ > 5) {
-    std::cout << "[ttkPersistenceDiagramClustering] Creating vtk diagrams"
-              << std::endl;
-  }
+  this->printMsg("Creating vtk diagrams", debug::Priority::VERBOSE);
   vtkNew<vtkPoints> points{};
 
   vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
@@ -464,10 +468,7 @@ vtkSmartPointer<vtkUnstructuredGrid>
 
 vtkSmartPointer<vtkUnstructuredGrid>
   ttkPersistenceDiagramClustering::createOutputClusteredDiagrams() {
-  if(debugLevel_ > 5) {
-    std::cout << "[ttkPersistenceDiagramClustering] Creating vtk Outputs"
-              << std::endl;
-  }
+  this->printMsg("Creating vtk outputs", debug::Priority::VERBOSE);
   vtkNew<vtkPoints> points{};
 
   vtkNew<vtkUnstructuredGrid> persistenceDiagram{};
@@ -666,10 +667,7 @@ vtkSmartPointer<vtkUnstructuredGrid>
 
 vtkSmartPointer<vtkUnstructuredGrid>
   ttkPersistenceDiagramClustering::createMatchings() {
-  if(debugLevel_ > 5) {
-    std::cout << "[ttkPersistenceDiagramClustering] Creating vtk Matchings"
-              << std::endl;
-  }
+  this->printMsg("Creating vtk matchings", debug::Priority::VERBOSE);
   vtkNew<vtkPoints> matchingPoints{};
 
   vtkNew<vtkUnstructuredGrid> matchingMesh{};

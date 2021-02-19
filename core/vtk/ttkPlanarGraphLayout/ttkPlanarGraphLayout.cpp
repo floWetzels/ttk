@@ -44,6 +44,10 @@ int ttkPlanarGraphLayout::RequestData(vtkInformation *request,
   auto input = vtkUnstructuredGrid::GetData(inputVector[0]);
   auto output = vtkUnstructuredGrid::GetData(outputVector);
 
+  if(input == nullptr || output == nullptr) {
+    return -1;
+  }
+
   // Copy input to output
   output->ShallowCopy(input);
 
@@ -83,9 +87,9 @@ int ttkPlanarGraphLayout::RequestData(vtkInformation *request,
 
   auto dataType
     = this->GetUseSequences() ? sequenceArray->GetDataType() : VTK_CHAR;
-  auto idType = this->GetUseBranches()
-                  ? branchArray->GetDataType()
-                  : this->GetUseLevels() ? levelArray->GetDataType() : VTK_CHAR;
+  auto idType = this->GetUseBranches() ? branchArray->GetDataType()
+                : this->GetUseLevels() ? levelArray->GetDataType()
+                                       : VTK_CHAR;
   //   auto levelType
   //     = this->GetUseLevels()
   //         ? levels->GetDataType()

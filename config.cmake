@@ -1,11 +1,13 @@
 set(CMAKE_CXX_STANDARD 11)
 
-# Set a predefined build type
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+# Set a default build type if none was specified
+get_property(generator_is_multi_config GLOBAL
+  PROPERTY GENERATOR_IS_MULTI_CONFIG)
+if (NOT CMAKE_BUILD_TYPE AND NOT generator_is_multi_config)
   message(STATUS "Setting build type to 'Release'.")
   set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
-endif()
+endif ()
 
 # Options & dependencies
 
@@ -72,35 +74,18 @@ mark_as_advanced(TTK_ENABLE_KAMIKAZE)
 option(TTK_ENABLE_CPU_OPTIMIZATION "Enable native CPU optimizations" ON)
 mark_as_advanced(TTK_ENABLE_CPU_OPTIMIZATION)
 
+option(TTK_ENABLE_DOUBLE_TEMPLATING "Use double templating for bivariate data" OFF)
+mark_as_advanced(TTK_ENABLE_DOUBLE_TEMPLATING)
+
+option(TTK_ENABLE_SHARED_BASE_LIBRARIES "Generate shared base libraries instead of static ones" ON)
+mark_as_advanced(TTK_ENABLE_SHARED_BASE_LIBRARIES)
+if(TTK_ENABLE_SHARED_BASE_LIBRARIES AND MSVC)
+  set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+endif()
+
 option(TTK_BUILD_DOCUMENTATION "Build doxygen developer documentation" OFF)
 if(TTK_BUILD_DOCUMENTATION)
   find_package(Doxygen)
-  if(DOXYGEN_FOUND)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/core/ttk.doxygen
-      ${CMAKE_CURRENT_BINARY_DIR}/core/ttk.doxygen)
-    add_custom_target(doc
-      ALL
-        ${DOXYGEN_EXECUTABLE}
-        ${CMAKE_CURRENT_BINARY_DIR}/core/ttk.doxygen
-      WORKING_DIRECTORY
-        ${CMAKE_CURRENT_BINARY_DIR}
-      COMMENT
-        "Generating API documentation with Doxygen"
-      VERBATIM
-      )
-    install(
-      DIRECTORY
-        ${CMAKE_CURRENT_BINARY_DIR}/doc/html
-      DESTINATION
-        ${CMAKE_INSTALL_PREFIX}/share/doc/ttk
-        )
-    install(
-      DIRECTORY
-        ${CMAKE_SOURCE_DIR}/doc/img
-      DESTINATION
-        ${CMAKE_INSTALL_PREFIX}/share/doc/ttk
-        )
-  endif()
 endif()
 
 find_package(Boost COMPONENTS system)
@@ -117,6 +102,14 @@ if(NOT ZLIB_FOUND)
   message(STATUS "Zlib not found, disabling Zlib support in TTK.")
 else()
   option(TTK_ENABLE_ZLIB "Enable Zlib support" ON)
+endif()
+
+find_package(EMBREE 3.4)
+if(EMBREE_FOUND)
+  option(TTK_ENABLE_EMBREE "Enable embree raytracing for ttkCinemaImaging" ON)
+else()
+  option(TTK_ENABLE_EMBREE "Enable embree raytracing for ttkCinemaImaging" OFF)
+  message(STATUS "EMBREE library not found, disabling embree support in TTK.")
 endif()
 
 # START_FIND_GRAPHVIZ
@@ -230,12 +223,12 @@ find_package(Eigen3 3.3 NO_MODULE)
 if(EIGEN3_FOUND)
   option(TTK_ENABLE_EIGEN "Enable Eigen3 support" ON)
 
-  find_path(SPECTRA_INCLUDE_DIR Spectra/SymEigsSolver.h)
-  if(SPECTRA_INCLUDE_DIR STREQUAL "SPECTRA_INCLUDE_DIR-NOTFOUND")
-    option(TTK_ENABLE_SPECTRA "Enable Spectra support" OFF)
-    message(STATUS "Spectra not found, disabling Spectra support in TTK.")
-  else()
+  find_package(Spectra QUIET)
+  if(Spectra_FOUND)
     option(TTK_ENABLE_SPECTRA "Enable Spectra support" ON)
+  else()
+    option(TTK_ENABLE_SPECTRA "Enable Spectra support" OFF)
+    message(STATUS "Spectra >=0.9.0 not found, disabling Spectra support in TTK.")
   endif()
 else()
   option(TTK_ENABLE_EIGEN "Enable Eigen3 support" OFF)
@@ -245,24 +238,32 @@ else()
   message(STATUS "Spectra not found, disabling Spectra support in TTK.")
 endif()
 
-# scikit-learn support is disabled by default for now under MacOs
-if(APPLE)
+find_package(Python3 COMPONENTS Development NumPy)
+
+if(Python3_FOUND AND Python3_NumPy_FOUND)
+  include_directories(SYSTEM ${Python3_INCLUDE_DIRS})
+  set(TTK_PYTHON_MAJOR_VERSION "${Python3_VERSION_MAJOR}"
+    CACHE INTERNAL "TTK_PYTHON_MAJOR_VERSION")
+  set(TTK_PYTHON_MINOR_VERSION "${Python3_VERSION_MINOR}"
+    CACHE INTERNAL "TTK_PYTHON_MINOR_VERSION")
+
+  option(TTK_ENABLE_SCIKIT_LEARN "Enable scikit-learn support" ON)
+else()
   option(TTK_ENABLE_SCIKIT_LEARN "Enable scikit-learn support" OFF)
-  message(STATUS "Disabling scikit-learn support by default under MacOs.")
+  message(STATUS "Improper Python/NumPy setup. Disabling scikit-learn support in TTK.")
 endif()
 
-if(NOT APPLE)
-  if(MSVC)
-    option(TTK_ENABLE_OPENMP "Enable OpenMP support" FALSE)
-  else()
-    option(TTK_ENABLE_OPENMP "Enable OpenMP support" TRUE)
-  endif()
+if(MSVC)
+  option(TTK_ENABLE_OPENMP "Enable OpenMP support" FALSE)
+else()
+  option(TTK_ENABLE_OPENMP "Enable OpenMP support" TRUE)
 endif()
+
 option(TTK_ENABLE_MPI "Enable MPI support" FALSE)
 
 if(TTK_ENABLE_OPENMP)
   find_package(OpenMP REQUIRED)
-  if(OPENMP_FOUND)
+  if(OpenMP_CXX_FOUND)
     option(TTK_ENABLE_OMP_PRIORITY
       "Gives tasks priority, high perf improvement"
       OFF
@@ -313,10 +314,19 @@ if(NOT CMAKE_ARCHIVE_OUTPUT_DIRECTORY)
   set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_LIBDIR}")
 endif()
 
-# Install rapth
+# ParaView plugins go to a subdirectory with this name
+set(TTK_PLUGIN_SUBDIR "TopologyToolKit")
 
-set(CMAKE_MACOSX_RPATH TRUE)
-set(CMAKE_INSTALL_RPATH TRUE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib/ttk/")
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+# Install rpath
+if(NOT DEFINED CMAKE_MACOSX_RPATH)
+  set(CMAKE_MACOSX_RPATH TRUE)
+endif()
+if(NOT DEFINED CMAKE_BUILD_WITH_INSTALL_RPATH)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+endif()
+if(NOT DEFINED CMAKE_INSTALL_RPATH)
+  set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+endif()
+if(NOT DEFINED CMAKE_INSTALL_RPATH_USE_LINK_PATH)
+  set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+endif()

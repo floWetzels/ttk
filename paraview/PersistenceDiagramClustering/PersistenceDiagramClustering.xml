@@ -6,7 +6,7 @@
        that matches your filter and then model your xml on it -->
   <ProxyGroup name="filters">
    <SourceProxy
-     name="PersistenceDiagramClustering"
+     name="ttkPersistenceDiagramClustering"
      class="ttkPersistenceDiagramClustering"
      label="TTK PersistenceDiagramClustering">
      <Documentation
@@ -380,7 +380,7 @@ between matched critical points.
       <OutputPort name="Matchings" index="2" id="port2" />
 
       <Hints>
-        <ShowInMenu category="TTK - Scalar Data" />
+        <ShowInMenu category="TTK - Ensemble Scalar Data" />
       </Hints>
    </SourceProxy>
  </ProxyGroup>

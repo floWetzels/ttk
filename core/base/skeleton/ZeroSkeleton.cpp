@@ -315,7 +315,6 @@ int ZeroSkeleton::buildVertexLinks(
                   for(SimplexId n = 0; n < 3; n++) {
                     vertexLinks[i][j * nbVertCell + n] = faceIds[threadId][n];
                   }
-                  hasPivotVertex = true;
                   break;
                 }
                 if(hasPivotVertex)
@@ -328,7 +327,6 @@ int ZeroSkeleton::buildVertexLinks(
             for(SimplexId n = 0; n < 2; n++) {
               vertexLinks[i][j * nbVertCell + n] = faceIds[threadId][n];
             }
-            hasPivotVertex = true;
             break;
           }
         }
@@ -547,7 +545,7 @@ int ZeroSkeleton::buildVertexStars(
   }
 
   const SimplexId cellNumber = cellArray.getNbCells();
-  const SimplexId timeBuckets = std::min(10, cellNumber);
+  const SimplexId timeBuckets = std::min<ttk::SimplexId>(10, cellNumber);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
@@ -597,7 +595,7 @@ int ZeroSkeleton::buildVertexStars(
   printMsg("Built " + std::to_string(vertexNumber) + " vertex stars", 1,
            t.getElapsedTime(), threadNumber_);
 
-  if(debugLevel_ >= Debug::advancedInfoMsg) {
+  if(debugLevel_ >= static_cast<int>(debug::Priority::DETAIL)) {
     for(SimplexId i = 0; i < (SimplexId)vertexStars.size(); i++) {
       stringstream msg;
       msg << "Vertex #" << i << " (" << vertexStars[i].size() << " cell(s)): ";

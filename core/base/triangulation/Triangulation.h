@@ -50,9 +50,9 @@ namespace ttk {
   public:
     Triangulation();
     Triangulation(const Triangulation &);
-    Triangulation(Triangulation &&);
+    Triangulation(Triangulation &&) noexcept;
     Triangulation &operator=(const Triangulation &);
-    Triangulation &operator=(Triangulation &&);
+    Triangulation &operator=(Triangulation &&) noexcept;
     ~Triangulation();
 
     enum class Type { EXPLICIT, IMPLICIT, PERIODIC };
@@ -2399,12 +2399,16 @@ namespace ttk {
         if(usePeriodicBoundaries == hasPeriodicBoundaries_) {
           return;
         }
-        hasPeriodicBoundaries_ = usePeriodicBoundaries;
-        if(hasPeriodicBoundaries_) {
+        if(usePeriodicBoundaries) {
           abstractTriangulation_ = &periodicImplicitTriangulation_;
         } else {
           abstractTriangulation_ = &implicitTriangulation_;
         }
+
+        // reset hasPreconditioned boolean
+        this->clear();
+        // but don't forget to set hasPeriodicBoundaries_
+        hasPeriodicBoundaries_ = usePeriodicBoundaries;
       }
     }
 
@@ -2435,7 +2439,7 @@ namespace ttk {
     }
 
     /// Tune the number of active threads (default: number of logical cores)
-    inline int setThreadNumber(const ThreadId &threadNumber) {
+    inline int setThreadNumber(const ThreadId threadNumber) {
       explicitTriangulation_.setThreadNumber(threadNumber);
       implicitTriangulation_.setThreadNumber(threadNumber);
       periodicImplicitTriangulation_.setThreadNumber(threadNumber);
