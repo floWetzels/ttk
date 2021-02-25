@@ -8,7 +8,7 @@
 	// filesystem mounts
 	"mounts": [
 		// replace SRC and DST as appropriate
-		//"source=<SRC>,target=<TARGET>,type=bind,consistency=cached"
+		"source=/data,target=/data,type=bind,consistency=cached"
 	],
 
 	// Set *default* container specific settings.json values on container create.
