@@ -81,7 +81,7 @@ std::shared_ptr<Tree>
                                  const std::shared_ptr<CTEdge> &parent,
                                  int &id) {
 
-  // initialize tree
+  // initialize tree 
   std::shared_ptr<Tree> t(new Tree);
 
   // set id and increment for later calls
