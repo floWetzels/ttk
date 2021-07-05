@@ -84,7 +84,7 @@ std::shared_ptr<Tree>
   // initialize tree 
   std::shared_ptr<Tree> t(new Tree);
 
-  // set id and increment for later calls
+  // set id and increment for later calls 
   t->id = id;
   id++;
 
