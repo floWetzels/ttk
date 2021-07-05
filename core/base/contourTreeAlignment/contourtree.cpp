@@ -105,7 +105,7 @@ std::shared_ptr<Tree>
 
   bool parentVisited = false;
 
-  // add neighbors to children   
+  // add neighbors to children    
   for(size_t i = 0; i < node->edgeList.size(); i++) {
 
     std::shared_ptr<CTEdge> edge = arcs[node->edgeList[i]];
