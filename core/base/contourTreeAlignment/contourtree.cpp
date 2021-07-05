@@ -92,7 +92,7 @@ std::shared_ptr<Tree>
   t->type = node->type;
 
   // set height and size to 0/1. For inner nodes this will be updated while
-  // traversing the children
+  // traversing the children 
   t->size = 1;
   t->height = 0;
 
