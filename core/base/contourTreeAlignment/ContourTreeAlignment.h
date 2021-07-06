@@ -33,6 +33,7 @@
 enum Type_Alignmenttree { averageValues, medianValues, lastMatchedValue };
 // enum Type_Match { matchNodes, matchArcs };
 enum Mode_ArcMatch { persistence, area, volume, overlap };
+enum Type_Tree {mergeTree,contourTree};
 
 struct AlignmentTree {
   std::shared_ptr<AlignmentTree> child1;
@@ -126,8 +127,6 @@ namespace ttk {
                 int seed);
 
     /// functions for aligning single trees in iteration
-    bool alignTree(const std::shared_ptr<ContourTree> &t);
-    bool initialize(const std::shared_ptr<ContourTree> &t);
     bool alignTree_consistentRoot(const std::shared_ptr<ContourTree> &t);
     bool initialize_consistentRoot(const std::shared_ptr<ContourTree> &t,
                                    int rootIdx);
