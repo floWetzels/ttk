@@ -33,7 +33,6 @@
 enum Type_Alignmenttree { averageValues, medianValues, lastMatchedValue };
 // enum Type_Match { matchNodes, matchArcs };
 enum Mode_ArcMatch { persistence, area, volume, overlap };
-enum Type_Tree {mergeTree,contourTree};
 
 struct AlignmentTree {
   std::shared_ptr<AlignmentTree> child1;
@@ -208,8 +207,6 @@ namespace ttk {
       computeRootedTree(const std::shared_ptr<AlignmentNode> &node,
                         const std::shared_ptr<AlignmentEdge> &parent,
                         int &id);
-    std::shared_ptr<BinaryTree> computeRootedDualTree(
-      const std::shared_ptr<AlignmentEdge> &arc, bool parent1, int &id);
     void computeNewAlignmenttree(const std::shared_ptr<AlignmentTree> &res);
 
     /// helper functions for branch decomposition
