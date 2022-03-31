@@ -45,9 +45,9 @@ After building the image with `docker build -t <image-name> --build-arg paraview
 ```
 docker run -it --rm -p 11111:11111 -v "$HOME:/home/`whoami`/" --user $UID <image-name>
 ```
-or use the docker hub image with 
+or use the GitHub image with 
 ```
-docker run -it --rm -p 11111:11111 -v "$(pwd)/data:/home/paraview/data" --user $UID topologytoolkit/ttk:<pv-version>-<ttk-version>
+docker run -it --rm -p 11111:11111 -v "$(pwd)/data:/home/paraview/data" --user $UID ghcr.io/scivislab/ttk:buildcache
 ```
 
 which will start `pvserver` (version `<pv-version>`) with TTK (version <ttk-version>) and listen on the default port 11111 for connections from a ParaView GUI. The directory `$(pwd)/data` will be mounted under `/home/paraview/data` in the container.

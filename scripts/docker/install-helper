@@ -65,6 +65,10 @@ rm -rf ${_build_dir} $1
 echo "collecting shared library dependencies for /usr/local"
 
 update-dlocatedb
+
+(
+set +o pipefail
+
 find /usr/local -type f \( -name "*.so" -o -executable \) \
     | file -F" " -f-    \
     | awk '/ELF/ { print $1 }' \
@@ -76,5 +80,6 @@ find /usr/local -type f \( -name "*.so" -o -executable \) \
     | xargs dlocate -p \
     | sort | uniq \
     > /usr/local/.pkgs
+)
 
 echo "---- end $what ----"

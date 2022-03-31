@@ -90,7 +90,7 @@ RUN  install-helper /tmp/ttk.sh
 #FROM builder-ttk as ttk-dev
 FROM builder as ttk-dev
 
-COPY --from=builder-ttk /usr/local /usr/local
+#COPY --from=builder-ttk /usr/local /usr/local
 
 RUN apt-get update \
  && apt-get -yqq --no-install-recommends install $(cat /usr/local/.pkgs) gdb \
