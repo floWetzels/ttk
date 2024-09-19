@@ -103,7 +103,100 @@ namespace ttk {
           baseModule_ == 0 ? branchDecomposition_ : false, useMinMaxPair_, true,
           treesNodeCorr_[i], true, baseModule_ == 2);
       }
-      executePara<dataType>(trees, distanceMatrix);
+      // benchmarks
+      if(false){
+        std::vector<std::tuple<unsigned int,unsigned int,double,std::chrono::nanoseconds::rep>> times;
+        std::srand(0);
+        for(unsigned int i = 0; i < distanceMatrix.size(); ++i) {
+          // if(std::rand()>0.4*RAND_MAX) continue;
+          for(unsigned int j = i + 1; j < distanceMatrix[0].size(); ++j) {
+            if(std::rand()>0.2*RAND_MAX) continue;
+            std::chrono::steady_clock::time_point begin;
+            std::chrono::steady_clock::time_point end;
+            double dist;
+            if(baseModule_ == 0) {
+              MergeTreeDistance mergeTreeDistance;
+              mergeTreeDistance.setAssignmentSolver(assignmentSolverID_);
+              mergeTreeDistance.setEpsilonTree1(epsilonTree1_);
+              mergeTreeDistance.setEpsilonTree2(epsilonTree2_);
+              mergeTreeDistance.setEpsilon2Tree1(epsilon2Tree1_);
+              mergeTreeDistance.setEpsilon2Tree2(epsilon2Tree2_);
+              mergeTreeDistance.setEpsilon3Tree1(epsilon3Tree1_);
+              mergeTreeDistance.setEpsilon3Tree2(epsilon3Tree2_);
+              mergeTreeDistance.setBranchDecomposition(branchDecomposition_);
+              mergeTreeDistance.setParallelize(parallelize_);
+              mergeTreeDistance.setPersistenceThreshold(persistenceThreshold_);
+              mergeTreeDistance.setDebugLevel(std::min(debugLevel_, 2));
+              mergeTreeDistance.setThreadNumber(this->threadNumber_);
+              mergeTreeDistance.setNormalizedWasserstein(
+                normalizedWasserstein_);
+              mergeTreeDistance.setKeepSubtree(keepSubtree_);
+              mergeTreeDistance.setDistanceSquaredRoot(distanceSquaredRoot_);
+              mergeTreeDistance.setUseMinMaxPair(useMinMaxPair_);
+              mergeTreeDistance.setPreprocess(false);
+              // mergeTreeDistance.setSaveTree(true);
+              mergeTreeDistance.setSaveTree(false);
+              mergeTreeDistance.setCleanTree(true);
+              mergeTreeDistance.setIsCalled(true);
+              mergeTreeDistance.setPostprocess(false);
+              mergeTreeDistance.setIsPersistenceDiagram(isPersistenceDiagram_);
+              if(useDoubleInput_) {
+                double const weight
+                  = mixDistancesMinMaxPairWeight(true);
+                mergeTreeDistance.setMinMaxPairWeight(weight);
+                mergeTreeDistance.setDistanceSquaredRoot(true);
+              }
+              std::vector<std::tuple<ftm::idNode, ftm::idNode>> outputMatching;
+              begin = std::chrono::steady_clock::now();
+              dist = mergeTreeDistance.execute<dataType>(
+                trees[i], trees[j], outputMatching);
+              end = std::chrono::steady_clock::now();
+            } else if(baseModule_ == 2) {
+              PathMappingDistance pathDist;
+              pathDist.setBaseMetric(pathMetric_);
+              pathDist.setAssignmentSolver(assignmentSolverID_);
+              pathDist.setSquared(distanceSquaredRoot_);
+              pathDist.setComputeMapping(true);
+              pathDist.setEpsilonTree1(epsilonTree1_);
+              pathDist.setEpsilonTree2(epsilonTree2_);
+              pathDist.setEpsilon2Tree1(epsilon2Tree1_);
+              pathDist.setEpsilon2Tree2(epsilon2Tree2_);
+              pathDist.setEpsilon3Tree1(epsilon3Tree1_);
+              pathDist.setEpsilon3Tree2(epsilon3Tree2_);
+              pathDist.setPersistenceThreshold(persistenceThreshold_);
+              pathDist.setPreprocess(false);
+              // pathDist.setSaveTree(true);
+              pathDist.setSaveTree(false);
+              pathDist.setlookahead(pathMappingLookahead_);
+              if(vid_to_seg.size()==trees.size()) pathDist.setVidToSeg(vid_to_seg[i],vid_to_seg[j]);
+              if(vid_to_seg.size()==trees.size()) pathDist.setValToSeg(val_to_seg[i],val_to_seg[j]);
+              begin = std::chrono::steady_clock::now();
+              dist = pathDist.execute<dataType>(trees[i], trees[j]);
+              end = std::chrono::steady_clock::now();
+              distanceMatrix[i][j] = static_cast<double>(dist);
+            }
+            auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+            times.push_back(std::make_tuple(i,j,dist,time));
+          }
+          std::cout << i << "/" << trees.size() << std::endl;
+        }
+        std::ofstream outfile;
+        outfile.open("/home/wetzels/benchmarks_lookahead.txt", std::ios_base::app);
+        for(auto t: times){
+          auto s1 = trees[std::get<0>(t)].tree.getNumberOfNodes();
+          auto s2 = trees[std::get<1>(t)].tree.getNumberOfNodes();
+          auto d1 = trees[std::get<0>(t)].tree.getTreeDepth();
+          auto d2 = trees[std::get<1>(t)].tree.getTreeDepth();
+          std::cout << "(" << std::get<0>(t) << "," << std::get<1>(t) << "," << std::get<2>(t) << "," << std::get<3>(t) << ") ";
+          outfile << ((baseModule_==0&&branchDecomposition_)?"wsd,"
+                    :(baseModule_==0&&!branchDecomposition_)?"mted,"
+                    :("pmd"+std::to_string(pathMappingLookahead_)+","))
+                  << s1 << "," << s2 << "," << d1 << "," << d2 << "," << std::get<3>(t) << std::endl;
+        }
+        std::cout << std::endl;
+        outfile.close();
+      }
+      else executePara<dataType>(trees, distanceMatrix);
       if(trees2.size() != 0) {
         std::vector<std::vector<int>> trees2NodeCorr(trees2.size());
         for(unsigned int i = 0; i < trees.size(); ++i) {
