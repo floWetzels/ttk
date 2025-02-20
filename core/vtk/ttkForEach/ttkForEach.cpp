@@ -22,10 +22,10 @@ ttkForEach::ttkForEach() {
 }
 
 ttkForEach::~ttkForEach() = default;
+;
 
-static int
-  addRecursivelyToFieldData(vtkDataObject *object,
-                            const vtkSmartPointer<vtkDataArray> &array) {
+int addRecursivelyToFieldData(vtkDataObject *object,
+                              const vtkSmartPointer<vtkDataArray> &array) {
   object->GetFieldData()->AddArray(array);
   if(object->IsA("vtkMultiBlockDataSet")) {
     auto objectAsMB = (vtkMultiBlockDataSet *)object;
@@ -139,10 +139,10 @@ int ttkForEach::RequestData(vtkInformation *request,
   iterationInformation->SetValue(0, this->IterationIdx);
   iterationInformation->SetValue(1, this->IterationNumber);
 
-  std::string const modeStrings[6] = {"B", "R", "G", "V", "A", "BT"};
+  const std::string modeStrings[6] = {"B", "R", "G", "V", "A", "BT"};
   this->printMsg("[" + modeStrings[static_cast<int>(mode)] + "] Iteration: ( "
-                   + std::to_string(this->IterationIdx) + " / "
-                   + std::to_string(this->IterationNumber - 1) + " ) ",
+                   + std::to_string(this->IterationIdx+1) + " / "
+                   + std::to_string(this->IterationNumber) + " ) ",
                  ttk::debug::Separator::SLASH);
 
   this->SetExpressionString(std::to_string(this->IterationIdx));

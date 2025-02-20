@@ -19,24 +19,41 @@ ttkEndFor::ttkEndFor() {
 }
 
 ttkEndFor::~ttkEndFor() = default;
+;
 
 int ttkEndFor::FillInputPortInformation(int port, vtkInformation *info) {
   if(port == 0 || port == 1) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataObject", 1);
+    if(port == 0)
+      info->Set(vtkAlgorithm::INPUT_IS_REPEATABLE(), 1);
     return 1;
   }
   return 0;
 }
 
-int ttkEndFor::FillOutputPortInformation(int port, vtkInformation *info) {
-  if(port == 0) {
-    info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
-    return 1;
+int removeIgnoredIterationsRecursively(vtkDataObject *object) {
+  auto objectAsMB = vtkMultiBlockDataSet::SafeDownCast(object);
+  if(objectAsMB){
+    int nBlocks = objectAsMB->GetNumberOfBlocks();
+    for(int b=0; b<nBlocks; b++){
+      auto block = objectAsMB->GetBlock(b);
+      if(block && block->GetFieldData()->HasArray("_ttk_IterationIgnore")){
+        // shift blocks
+        for(int j=b+1; j<nBlocks; j++)
+          objectAsMB->SetBlock(j-1,objectAsMB->GetBlock(j));
+        objectAsMB->RemoveBlock(nBlocks-1);
+        nBlocks--;
+        b--;
+      }
+    }
+    nBlocks = objectAsMB->GetNumberOfBlocks();
+    for(int b=0; b<nBlocks; b++)
+      removeIgnoredIterationsRecursively(objectAsMB->GetBlock(b));
   }
-  return 0;
+  return 1;
 }
 
-static int removeFieldDataRecursively(vtkDataObject *object) {
+int removeFieldDataRecursively(vtkDataObject *object) {
   object->GetFieldData()->RemoveArray("_ttk_IterationInfo");
   if(object->IsA("vtkMultiBlockDataSet")) {
     auto objectAsMB = static_cast<vtkMultiBlockDataSet *>(object);
@@ -66,32 +83,36 @@ int ttkEndFor::RequestData(vtkInformation *request,
   }
 
   // get iteration info
-  int const i = forEach->GetIterationIdx() - 1;
-  int const n = forEach->GetIterationNumber();
+  const int i = forEach->GetIterationIdx() - 1;
+  const int n = forEach->GetIterationNumber();
 
-  bool const isRepeatedIteration = this->LastIterationIdx == i && i > 0;
+  // if this is a repeated iteration
+  if(this->LastIterationIdx == i && i > 0){
+    this->printMsg("For Loop Modified -> Restarting Iterations", ttk::debug::Separator::BACKSLASH);
+    forEach->SetIterationIdx(n+1); // to force restart in ttkForEach
+
+    size_t nInputConnections = inputVector[0]->GetNumberOfInformationObjects();
+    for(size_t c=0; c<nInputConnections; c++)
+      this->GetInputAlgorithm(0, c)->Update();
+    request->Set(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING(), 1);
+    return 1;
+  }
+
   this->LastIterationIdx = i;
 
-  if(isRepeatedIteration)
-    this->printMsg("For Loop Modified -> Restarting Iterations",
-                   ttk::debug::Separator::BACKSLASH);
-  else
-    this->printMsg("Iteration ( " + std::to_string(i) + " / "
-                     + std::to_string(n - 1) + " ) complete ",
-                   ttk::debug::Separator::BACKSLASH);
+  this->printMsg("Iteration ( " + std::to_string(i+1) + " / " + std::to_string(n) + " ) complete ", ttk::debug::Separator::BACKSLASH);
 
-  if(i >= n - 1 && !isRepeatedIteration) {
-    // if this is the last iteration
-    auto input = vtkDataObject::GetData(inputVector[0]);
+  ttkBlockAggregator::RequestData(request, inputVector, outputVector);
+
+  if(i >= n - 1) {
     auto output = vtkDataObject::GetData(outputVector);
-    output->ShallowCopy(input);
+    removeIgnoredIterationsRecursively(output);
     removeFieldDataRecursively(output);
     request->Remove(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING());
   } else {
     // if this is an intermediate iteration
     forEach->Modified();
-    this->GetInputAlgorithm(0, 0)->Update();
-
+    forEach->Update();
     request->Set(vtkStreamingDemandDrivenPipeline::CONTINUE_EXECUTING(), 1);
   }
 

@@ -12,7 +12,7 @@
 /// \param Input vtkDataObject that will be added as a block.
 /// \param Output vtkMultiBlockDataSet containing all added blocks.
 /// \sa ttkAlgorithm
-///
+////
 /// \b Online \b examples: \n
 ///   - <a
 ///   href="https://topology-tool-kit.github.io/examples/contourTreeAlignment/">Contour
@@ -21,20 +21,8 @@
 ///   href="https://topology-tool-kit.github.io/examples/mergeTreeClustering/">Merge
 ///   Tree Clustering example</a> \n
 ///   - <a
-///   href="https://topology-tool-kit.github.io/examples/mergeTreeFeatureTracking/">Merge
-///   Tree Feature Tracking example</a> \n
-///   - <a
-///   href="https://topology-tool-kit.github.io/examples/mergeTreePGA/">Merge
-///   Tree Principal Geodesic Analysis example</a> \n
-///   - <a
-///   href="https://topology-tool-kit.github.io/examples/mergeTreeWAE/">Merge
-///   tree Wasserstein Auto-Encoder example</a> \n
-///   - <a
 ///   href="https://topology-tool-kit.github.io/examples/nestedTrackingFromOverlap/">Nested
 ///   Tracking from Overlap example</a> \n
-///   - <a
-///   href="https://topology-tool-kit.github.io/examples/persistenceDiagramPGA/">Persistence
-///   Diagram Principal Geodesic Analysis example</a> \n
 
 #pragma once
 
@@ -49,15 +37,12 @@ class vtkMultiBlockDataSet;
 
 class TTKBLOCKAGGREGATOR_EXPORT ttkBlockAggregator : public ttkAlgorithm {
 private:
-  bool ForceReset{false};
-  bool FlattenInput{true};
+  bool Streaming{true};
   vtkSmartPointer<vtkMultiBlockDataSet> AggregatedMultiBlockDataSet;
 
 public:
-  vtkSetMacro(ForceReset, bool);
-  vtkGetMacro(ForceReset, bool);
-  vtkSetMacro(FlattenInput, bool);
-  vtkGetMacro(FlattenInput, bool);
+  vtkSetMacro(Streaming, bool);
+  vtkGetMacro(Streaming, bool);
 
   static ttkBlockAggregator *New();
   vtkTypeMacro(ttkBlockAggregator, ttkAlgorithm);
@@ -73,5 +58,6 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-  int AggregateBlock(vtkDataObject *dataObject);
+
+  int AggregateBlock(vtkMultiBlockDataSet* collection, vtkDataObject *item);
 };
