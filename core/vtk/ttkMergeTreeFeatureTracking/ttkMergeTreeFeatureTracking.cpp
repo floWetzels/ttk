@@ -385,7 +385,10 @@ int ttkMergeTreeFeatureTracking::RequestData(
   loadBlocks(inputTrees, blocks);
   loadBlocks(inputTrees2, blocks2);
 
-  bool doCompute = oldBlocks != blocks;
+  auto scalars = vtkDataSet::SafeDownCast(inputTrees[0]->GetBlock(0))
+                   ->GetPointData()
+                   ->GetArray("Scalar");
+  bool doCompute = oldScalars != scalars;
   std::vector<ttk::ftm::MergeTree<float>> tempTrees, tempTrees2;
 
   // Construct trees
@@ -426,6 +429,6 @@ int ttkMergeTreeFeatureTracking::RequestData(
   Timer t_output;
   auto res = runOutput(outputVector, inputTrees, inputTrees2);
   printMsg("Output", 1, t_output.getElapsedTime(), this->threadNumber_);
-  oldBlocks = blocks;
+  oldScalars = scalars;
   return res;
 }

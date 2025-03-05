@@ -89,7 +89,7 @@ private:
   std::string ExcludeImportantPairsHigher = "";
 
   //
-  vtkMultiBlockDataSet *oldBlocks = 0;
+  vtkAbstractArray *oldScalars = 0;
   std::vector<std::vector<int>> treesNodeCorrMesh;
   std::vector<ttk::ftm::MergeTree<float>> intermediateTrees, intermediateTrees2;
   std::vector<vtkUnstructuredGrid *> treesNodes, treesArcs;
@@ -100,7 +100,7 @@ private:
   std::vector<float> distances;
 
   void doCompute() {
-    oldBlocks = 0;
+    oldScalars = 0;
   }
 
 public:
