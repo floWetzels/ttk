@@ -5,6 +5,7 @@
 #include <MergeTreeUtils.h>
 #include <MergeTreeVisualization.h>
 #include <PathMappingDistance.h>
+#include <NaiveMergeTreeEditDistance.h>
 #include <ttkMergeTreeClustering.h>
 #include <ttkMergeTreeUtils.h>
 #include <ttkMergeTreeVisualization.h>
@@ -126,6 +127,8 @@ int ttkMergeTreeClustering::RequestData(vtkInformation *ttkNotUsed(request),
     baseModule = 1;
   } else if(Backend == 4) {
     baseModule = 2;
+  }  else if(Backend == 5) {
+    baseModule = 3;
   } else {
     baseModule = 0;
   }
@@ -255,6 +258,10 @@ int ttkMergeTreeClustering::runCompute(
     BranchDecomposition = false;
     NormalizedWasserstein = false;
     KeepSubtree = false;
+  } else if(Backend == 5) {
+    BranchDecomposition = false;
+    NormalizedWasserstein = false;
+    KeepSubtree = false;
   }
   if(IsPersistenceDiagram) {
     BranchDecomposition = true;
@@ -330,7 +337,7 @@ int ttkMergeTreeClustering::runCompute(
         nodeCorr2[i] = i;
       trees1NodeCorrMesh = branchDist.getTreesNodeCorr();
       finalDistances = std::vector<double>{distance};
-    } else {
+    } else if(baseModule == 2) {
       PathMappingDistance pathDist;
       pathDist.setBaseMetric(pathMetric);
       pathDist.setlookahead(PathMappingLookahead);
@@ -354,6 +361,39 @@ int ttkMergeTreeClustering::runCompute(
       distance = pathDist.execute<dataType>(
         intermediateMTrees[0], intermediateMTrees[1], &outputMatching);
       trees1NodeCorrMesh = pathDist.getTreesNodeCorr();
+
+      // std::vector<ttk::SimplexId>
+      // nodeCorr1(intermediateTrees[0]->getNumberOfNodes());
+      // std::vector<ttk::SimplexId>
+      // nodeCorr2(intermediateTrees[1]->getNumberOfNodes()); for(ttk::SimplexId
+      // i=0; i<nodeCorr1.size(); i++) nodeCorr1[i] = i; for(ttk::SimplexId i=0;
+      // i<nodeCorr2.size(); i++) nodeCorr2[i] = i; trees1NodeCorrMesh =
+      // std::vector<std::vector<ttk::SimplexId>>{nodeCorr1,nodeCorr2};
+      finalDistances = std::vector<double>{distance};
+    } else {
+      NaiveMergeTreeEditDistance naiveEditDist;
+      naiveEditDist.setBaseMetric(pathMetric);
+      naiveEditDist.setlookahead(PathMappingLookahead);
+      naiveEditDist.setAssignmentSolver(AssignmentSolver);
+      naiveEditDist.setSquared(false);
+      naiveEditDist.setComputeMapping(true);
+      naiveEditDist.setPreprocess(true);
+      naiveEditDist.setBranchDecomposition(false);
+
+      naiveEditDist.setEpsilonTree1(EpsilonTree1);
+      naiveEditDist.setEpsilonTree2(EpsilonTree2);
+      naiveEditDist.setPersistenceThreshold(PersistenceThreshold);
+      // naiveEditDist.setUseMinMaxPair(UseMinMaxPair);
+      naiveEditDist.setCleanTree(true);
+      naiveEditDist.setDeleteMultiPersPairs(DeleteMultiPersPairs);
+      // naiveEditDist.setEpsilon1UseFarthestSaddle(Epsilon1UseFarthestSaddle);
+      naiveEditDist.setPersistenceThreshold(PersistenceThreshold);
+      naiveEditDist.setThreadNumber(this->threadNumber_);
+      naiveEditDist.setDebugLevel(this->debugLevel_);
+
+      distance = naiveEditDist.execute<dataType>(
+        intermediateMTrees[0], intermediateMTrees[1], &outputMatching);
+      trees1NodeCorrMesh = naiveEditDist.getTreesNodeCorr();
 
       // std::vector<ttk::SimplexId>
       // nodeCorr1(intermediateTrees[0]->getNumberOfNodes());

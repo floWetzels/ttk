@@ -496,10 +496,16 @@ Online examples:
                   <Hints>
                   <PropertyWidgetDecorator type="CompositeDecorator">
                     <Expression type="and">
-                      <PropertyWidgetDecorator type="GenericDecorator"
-                                                    mode="visibility"
-                                                    property="Backend"
-                                                    value="4" />
+                      <Expression type="or">
+                        <PropertyWidgetDecorator type="GenericDecorator"
+                                                      mode="visibility"
+                                                      property="Backend"
+                                                      value="4" />
+                        <PropertyWidgetDecorator type="GenericDecorator"
+                                                      mode="visibility"
+                                                      property="Backend"
+                                                      value="5" />
+                      </Expression>
                       <PropertyWidgetDecorator type="GenericDecorator"
                                                     mode="visibility"
                                                     property="ComputeBarycenter"

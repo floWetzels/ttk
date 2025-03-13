@@ -47,6 +47,7 @@
 #include <MergeTreeBase.h>
 #include <MergeTreeDistance.h>
 #include <PathMappingDistance.h>
+#include <NaiveMergeTreeEditDistance.h>
 
 namespace ttk {
 
@@ -226,6 +227,34 @@ namespace ttk {
               if(vid_to_seg.size()==trees.size()) pathDist.setValToSeg(val_to_seg[i],val_to_seg[j]);
               // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
               dataType dist = pathDist.execute<dataType>(trees[i], trees[j]);
+              // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+              // auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+              // std::cout << i << " " << j << " ; "
+              //           << trees[i].tree.getNumberOfNodes() << " "
+              //           << trees[j].tree.getNumberOfNodes()  << " ; "
+              //           << time << "[µs]" << std::endl;
+              distanceMatrix[i][j] = static_cast<double>(dist);
+            } else if(baseModule_ == 3) {
+              NaiveMergeTreeEditDistance naiveEditDist;
+              naiveEditDist.setBaseMetric(pathMetric_);
+              naiveEditDist.setAssignmentSolver(assignmentSolverID_);
+              naiveEditDist.setSquared(distanceSquaredRoot_);
+              naiveEditDist.setComputeMapping(true);
+              naiveEditDist.setEpsilonTree1(epsilonTree1_);
+              naiveEditDist.setEpsilonTree2(epsilonTree2_);
+              naiveEditDist.setEpsilon2Tree1(epsilon2Tree1_);
+              naiveEditDist.setEpsilon2Tree2(epsilon2Tree2_);
+              naiveEditDist.setEpsilon3Tree1(epsilon3Tree1_);
+              naiveEditDist.setEpsilon3Tree2(epsilon3Tree2_);
+              naiveEditDist.setPersistenceThreshold(persistenceThreshold_);
+              naiveEditDist.setPreprocess(false);
+              // naiveEditDist.setSaveTree(true);
+              naiveEditDist.setSaveTree(false);
+              naiveEditDist.setlookahead(pathMappingLookahead_);
+              if(vid_to_seg.size()==trees.size()) naiveEditDist.setVidToSeg(vid_to_seg[i],vid_to_seg[j]);
+              if(vid_to_seg.size()==trees.size()) naiveEditDist.setValToSeg(val_to_seg[i],val_to_seg[j]);
+              // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+              dataType dist = naiveEditDist.execute<dataType>(trees[i], trees[j]);
               // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
               // auto time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
               // std::cout << i << " " << j << " ; "

@@ -155,6 +155,11 @@ int ttkMergeTreeDistanceMatrix::run(
       normalizedWasserstein_ = false;
       keepSubtree_ = true;
       baseModule_ = 2;
+    } else if(Backend == 5) {
+      branchDecomposition_ = true;
+      normalizedWasserstein_ = false;
+      keepSubtree_ = true;
+      baseModule_ = 3;
     } else {
       baseModule_ = 0;
     }
@@ -210,6 +215,18 @@ int ttkMergeTreeDistanceMatrix::run(
     epsilon2Tree2_ = epsilon2Tree1_;
     epsilon3Tree2_ = epsilon3Tree1_;
     printMsg("PathMetric: " + metric);
+  }
+  if(baseModule_ == 3) {
+    printMsg("Using Naive Merge Tree Edit Distance.");
+    std::string metric;
+    if(pathMetric_ == 0)
+      metric = "Persistence difference";
+    else
+      return 1;
+    epsilonTree2_ = epsilonTree1_;
+    epsilon2Tree2_ = epsilon2Tree1_;
+    epsilon3Tree2_ = epsilon3Tree1_;
+    printMsg("EdgeMetric: " + metric);
   }
 
   // --- Call base

@@ -103,10 +103,18 @@ Online examples:
                 number_of_elements="1"
                 default_values="0">
                   <Hints>
-                  <PropertyWidgetDecorator type="GenericDecorator"
-                                                mode="visibility"
-                                                property="Backend"
-                                                value="4" />
+                  <PropertyWidgetDecorator type="CompositeDecorator">
+                    <Expression type="or">
+                      <PropertyWidgetDecorator type="GenericDecorator"
+                                                    mode="visibility"
+                                                    property="Backend"
+                                                    value="4" />
+                      <PropertyWidgetDecorator type="GenericDecorator"
+                                                    mode="visibility"
+                                                    property="Backend"
+                                                    value="5" />
+                    </Expression>
+                  </PropertyWidgetDecorator>
                   </Hints>
                   <Documentation>
                     This parameter controls how many consecutive saddle swaps the path mapping distance allows.
