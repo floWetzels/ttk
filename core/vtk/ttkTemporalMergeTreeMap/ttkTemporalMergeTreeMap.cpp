@@ -1,0 +1,990 @@
+#include <ttkTemporalMergeTreeMap.h>
+
+#include <vtkInformation.h>
+
+#include <vtkCellData.h>
+#include <vtkDataArray.h>
+#include <vtkDataSet.h>
+#include <vtkFloatArray.h>
+#include <vtkImageData.h>
+#include <vtkMultiBlockDataSet.h>
+#include <vtkObjectFactory.h>
+#include <vtkPointData.h>
+#include <vtkSmartPointer.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkFloatArray.h>
+#include <Debug.h>
+#include <vtkCellData.h>
+
+
+#include <FTMTreeUtils.h>
+#include <MergeTreeBarycenter.h>
+#include <ttkMacros.h>
+#include <ttkMergeTreeClustering.h>
+#include <ttkMergeTreeFeatureTracking.h>
+#include <ttkMergeTreeUtils.h>
+#include <ttkUtils.h>
+
+// A VTK macro that enables the instantiation of this class via ::New()
+// You do not have to modify this
+vtkStandardNewMacro(ttkTemporalMergeTreeMap);
+
+/**
+ * TODO 7: Implement the filter constructor and destructor in the cpp file.
+ *
+ * The constructor has to specify the number of input and output ports
+ * with the functions SetNumberOfInputPorts and SetNumberOfOutputPorts,
+ * respectively. It should also set default values for all filter
+ * parameters.
+ *
+ * The destructor is usually empty unless you want to manage memory
+ * explicitly, by for example allocating memory on the heap that needs
+ * to be freed when the filter is destroyed.
+ */
+ttkTemporalMergeTreeMap::ttkTemporalMergeTreeMap() {
+  this->SetNumberOfInputPorts(3);
+  this->SetNumberOfOutputPorts(3);
+}
+
+/**
+ * TODO 8: Specify the required input data type of each input port
+ *
+ * This method specifies the required input object data types of the
+ * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
+ * the port information.
+ */
+int ttkTemporalMergeTreeMap::FillInputPortInformation(int port,
+                                                       vtkInformation *info) {
+  if(port == 0) {
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
+    return 1;
+  }
+  if(port == 1) {
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
+    return 1;
+  }
+  if(port == 2) {
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * TODO 9: Specify the data object type of each output port
+ *
+ * This method specifies in the port information object the data type of the
+ * corresponding output objects. It is possible to either explicitly
+ * specify a type by adding a vtkDataObject::DATA_TYPE_NAME() key:
+ *
+ *      info->Set( vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid" );
+ *
+ * or to pass a type of an input port to an output port by adding the
+ * ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT() key (see below).
+ *
+ * Note: prior to the execution of the RequestData method the pipeline will
+ * initialize empty output data objects based on this information.
+ */
+int ttkTemporalMergeTreeMap::FillOutputPortInformation(int port,
+                                                        vtkInformation *info) {
+  if(port == 0 || port == 1 || port == 2) {
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
+    return 1;
+  }
+  return 0;
+}
+
+void ttkTemporalMergeTreeMap::dfs_linearization(
+  ttk::SimplexId curr_node,
+  std::vector<double> &lin,
+  std::vector<ttk::SimplexId> &seg,
+  std::vector<ttk::SimplexId> &bar,
+  std::vector<double> &nodePositions,
+  std::vector<std::vector<ttk::SimplexId>> &memiChildren,
+  std::vector<std::vector<double>> &memiSegmentScalars,
+  std::vector<ttk::SimplexId> &memiSizes,
+  std::vector<ttk::SimplexId> &memiSegs,
+  std::vector<ttk::SimplexId> &branchNodeIDs,
+  std::vector<double> &memiScalars,
+  std::vector<double> &memiOrdering,
+  std::vector<ttk::SimplexId> prevMatching,
+  std::vector<double> prevOrdering,
+  ttk::SimplexId timeStep) {
+  if(memiChildren[curr_node].size() == 0) {
+    auto curr_size = memiSizes[curr_node];
+    auto segment = memiSegmentScalars[memiSegs[curr_node]];
+    for(ttk::SimplexId s = 0; s < segment.size(); s += 2) {
+      lin.push_back(segment[s]);
+      seg.push_back(memiSegs[curr_node]);
+      bar.push_back(branchNodeIDs.empty() ? -1 : branchNodeIDs[curr_node]);
+    }
+    nodePositions[curr_node] = lin.size();
+    for(ttk::SimplexId s = segment.size() - 1 - (segment.size() % 2); s >= 0;
+        s -= 2) {
+      // for(ttk::SimplexId s=1; s<segment.size(); s+=2){
+      lin.push_back(segment[s]);
+      seg.push_back(memiSegs[curr_node]);
+      bar.push_back(branchNodeIDs.empty() ? -1 : branchNodeIDs[curr_node]);
+    }
+  } else {
+    std::vector<ttk::SimplexId> curr_children = memiChildren[curr_node];
+    if(!memiOrdering.empty()){
+      std::sort(curr_children.begin(), curr_children.end(),
+                [memiOrdering](ttk::SimplexId x1, ttk::SimplexId x2) -> bool {
+                  return memiOrdering[x1] < memiOrdering[x2];
+                });
+      // std::cout << "sorting by barycenter layout" << std::endl;
+    }
+    else if(!prevMatching.empty()){
+      std::sort(curr_children.begin(), curr_children.end(),
+                [prevMatching,prevOrdering](ttk::SimplexId x1, ttk::SimplexId x2) -> bool {
+                  if(prevMatching[x1]<0) return true;
+                  if(prevMatching[x2]<0) return false;
+                  return prevOrdering[prevMatching[x1]] < prevOrdering[prevMatching[x2]];
+                });
+      // std::cout << "sorting by previous step" << std::endl;
+    }
+    // else{
+    //   std::cout << "no sorting at all" << std::endl;
+    // }
+    // std::vector<ttk::SimplexId> curr_children;
+    auto curr_size = ttk::SimplexId(memiSizes[curr_node]);
+    auto segment = memiSegmentScalars[memiSegs[curr_node]];
+    auto cs1 = ttk::SimplexId(curr_size / 2);
+    auto cs2 = curr_size - cs1;
+    for(ttk::SimplexId s = 0; s < segment.size() - 1; s += 2) {
+      lin.push_back(segment[s]);
+      seg.push_back(memiSegs[curr_node]);
+      bar.push_back(branchNodeIDs.empty() ? -1 : branchNodeIDs[curr_node]);
+    }
+    if(curr_children.size() > 2) {
+      this->printWrn(std::to_string(curr_children.size())+" children in a node, multisaddle at step " + std::to_string(timeStep) + "!!");
+    }
+    for(ttk::SimplexId ci = 0; ci < curr_children.size(); ci++) {
+      auto c = curr_children[ci];
+      dfs_linearization(c, lin, seg, bar, nodePositions, memiChildren, memiSegmentScalars,
+                        memiSizes, memiSegs, branchNodeIDs, memiScalars,
+                        memiOrdering,prevMatching,prevOrdering,timeStep);
+      if(ci < curr_children.size() - 1) {
+        lin.push_back(memiScalars[curr_node]);
+        seg.push_back(memiSegs[curr_node]);
+        bar.push_back(branchNodeIDs.empty() ? -1 : branchNodeIDs[curr_node]);
+      }
+      if(ci == 0) {
+        nodePositions[curr_node] = lin.size();
+      }
+    }
+    for(ttk::SimplexId s = segment.size() - 2 - (1 - (segment.size() % 2));
+        s >= 0; s -= 2) {
+      // for(ttk::SimplexId s=1; s<segment.size()-1; s+=2){
+      lin.push_back(segment[s]);
+      seg.push_back(memiSegs[curr_node]);
+      bar.push_back(branchNodeIDs.empty() ? -1 : branchNodeIDs[curr_node]);
+    }
+  }
+}
+
+void ttkTemporalMergeTreeMap::computeBaryBranchOrdering(
+  vtkMultiBlockDataSet *mtmb,
+  vtkMultiBlockDataSet *members,
+  std::vector<double> &ordering_branches) {
+
+  vtkNew<ttkMergeTreeClustering> c;
+  c->SetInputDataObject(0, mtmb);
+  c->SetComputeBarycenter(true);
+  c->SetImportantPairs(0);
+  c->SetEpsilonTree1(0);
+  c->SetEpsilon2Tree1(100);
+  c->SetEpsilon3Tree1(100);
+  c->SetDeterministic(true);
+  c->SetUseFixedInit(true);
+  c->SetPlanarLayout(true);
+  c->SetBackend(backend);
+  if(this->backend==3){
+    c->SetBranchMetric(branchMetric);
+  }
+
+  c->SetDebugLevel(4);
+  c->SetBarycenterSizeLimitPercent(barycenterSize);
+  c->Update();
+
+  members->DeepCopy(
+    vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(0)));
+  auto barycenter
+    = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(1));
+
+  auto baryNodes_ = vtkMultiBlockDataSet::SafeDownCast(barycenter->GetBlock(0));
+  auto baryArcs_ = vtkMultiBlockDataSet::SafeDownCast(barycenter->GetBlock(1));
+  auto baryNodes = vtkUnstructuredGrid::SafeDownCast(baryNodes_->GetBlock(0));
+  auto baryArcs = vtkUnstructuredGrid::SafeDownCast(baryArcs_->GetBlock(0));
+
+  ttk::SimplexId baryNumNodes = 0;
+  std::vector<ttk::SimplexId> baryNodeIsDummy(baryNodes->GetNumberOfPoints());
+  for(ttk::SimplexId i = 0; i < baryNodes->GetNumberOfPoints(); i++) {
+    auto nId
+      = vtkIntArray::SafeDownCast(baryNodes->GetPointData()->GetArray("NodeId"))
+          ->GetValue(i);
+    auto isDummy = vtkIntArray::SafeDownCast(
+                     baryNodes->GetPointData()->GetArray("isDummyNode"))
+                     ->GetValue(i);
+    if(!isDummy) {
+      baryNodeIsDummy[nId] = 1;
+      baryNumNodes += 1;
+    }
+  }
+  //std::cout << "survived the loop" << std::endl;
+
+  std::vector<ttk::SimplexId> baryParents(baryNodes->GetNumberOfPoints(), -1);
+  for(ttk::SimplexId i = 0; i < baryArcs->GetNumberOfCells(); i++) {
+    auto childId = vtkIntArray::SafeDownCast(
+                     baryArcs->GetCellData()->GetArray("downNodeId"))
+                     ->GetValue(i);
+    auto parentId
+      = vtkIntArray::SafeDownCast(baryArcs->GetCellData()->GetArray("upNodeId"))
+          ->GetValue(i);
+    baryParents[childId] = parentId;
+  }
+
+  std::vector<std::vector<ttk::SimplexId>> baryChildren(
+    baryNodes->GetNumberOfPoints());
+  ttk::SimplexId root = -1;
+  for(ttk::SimplexId i = 0; i < baryParents.size(); i++) {
+    auto parentId = baryParents[i];
+    if(parentId >= 0)
+      baryChildren[parentId].push_back(i);
+    if(parentId == -1 && baryNodeIsDummy[i])
+      root = i;
+  }
+
+  std::stack<ttk::SimplexId> s;
+  s.push(root);
+  ttk::SimplexId idx = 0;
+  auto ordering_baryNodes
+    = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  while(!s.empty()) {
+    auto node = s.top();
+    s.pop();
+    ordering_baryNodes[node] = idx;
+    idx++;
+    for(auto child : baryChildren[node]) {
+      s.push(child);
+    }
+  }
+
+  // compute ordering of barycenter branchIDs
+  ordering_branches = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  auto bary_branches = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  auto bary_scalars = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  for(ttk::SimplexId i = 0; i < baryNodes->GetNumberOfPoints(); i++) {
+    auto posX = baryNodes->GetPoint(i)[0];
+    // auto posY = baryNodes->GetPoint(i)[1];
+    ttk::SimplexId nId
+      = baryNodes->GetPointData()->GetArray("NodeId")->GetComponent(i, 0);
+    ttk::SimplexId scalar
+      = baryNodes->GetPointData()->GetArray("Scalar")->GetComponent(i, 0);
+    // if(!baryChildren[nId].empty()) continue;
+    auto bId = vtkIntArray::SafeDownCast(
+                 baryNodes->GetPointData()->GetArray("BranchNodeID"))
+                 ->GetValue(i);
+    ordering_branches[bId] = posX; // ordering_baryNodes[nId];
+    bary_branches[nId] = bId;
+    bary_scalars[nId] = scalar;
+  }
+}
+
+void ttkTemporalMergeTreeMap::computeAlignmentOrdering(
+  vtkMultiBlockDataSet* inputNodes,
+  vtkMultiBlockDataSet* inputArcs,
+  vtkMultiBlockDataSet *members,
+  vtkMultiBlockDataSet *alignment,
+  std::vector<double> &ordering_branches,
+  std::vector<std::vector<ttk::SimplexId>> &matchings) {
+
+  members->SetNumberOfBlocks(2);
+  // alignments->SetNumberOfBlocks(inputNodes->GetNumberOfBlocks()-1);
+  
+  vtkNew<vtkMultiBlockDataSet> memberNodes;
+  memberNodes->SetNumberOfBlocks(inputNodes->GetNumberOfBlocks());
+  vtkNew<vtkMultiBlockDataSet> memberArcs;
+  memberArcs->SetNumberOfBlocks(inputArcs->GetNumberOfBlocks());
+
+  matchings.resize(inputArcs->GetNumberOfBlocks());
+
+  vtkNew<ttkMergeTreeClustering> c;
+  c->SetComputeBarycenter(true);
+  c->SetImportantPairs(0);
+  c->SetEpsilonTree1(0);
+  c->SetEpsilon2Tree1(100);
+  c->SetEpsilon3Tree1(100);
+  c->SetDeterministic(true);
+  c->SetUseFixedInit(true);
+  c->SetPlanarLayout(true);
+  c->SetBackend(backend);
+  if(this->backend==3){
+    c->SetBranchMetric(branchMetric);
+  }
+  c->SetDebugLevel(4);
+  c->SetAlpha(0.5);
+
+  vtkNew<vtkMultiBlockDataSet> nodemb;
+  nodemb->SetNumberOfBlocks(2);
+  nodemb->SetBlock(0, inputNodes->GetBlock(0));
+  nodemb->SetBlock(1, inputNodes->GetBlock(1));
+  vtkNew<vtkMultiBlockDataSet> arcmb;
+  arcmb->SetNumberOfBlocks(2);
+  arcmb->SetBlock(0, inputArcs->GetBlock(0));
+  arcmb->SetBlock(1, inputArcs->GetBlock(1));
+  vtkNew<vtkMultiBlockDataSet> mtmb;
+  mtmb->SetNumberOfBlocks(2);
+  mtmb->SetBlock(0, nodemb);
+  mtmb->SetBlock(1, arcmb);
+
+  c->SetInputDataObject(0, mtmb);
+  c->Update();
+
+  // alignment = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(1));
+  alignment->DeepCopy(c->GetOutputDataObject(1));
+  auto alignmentMatching = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(2));
+  std::cout << vtkMultiBlockDataSet::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(alignment)->GetBlock(1))->GetNumberOfPoints() << std::endl;
+
+  auto alignmentMembers = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(0));
+  auto alignmentMemberNodes = vtkMultiBlockDataSet::SafeDownCast(alignmentMembers->GetBlock(0));
+  auto alignmentMemberArcs = vtkMultiBlockDataSet::SafeDownCast(alignmentMembers->GetBlock(1));
+  
+  vtkNew<vtkUnstructuredGrid> nodes0;
+  vtkNew<vtkUnstructuredGrid> arcs0;
+  nodes0->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberNodes->GetBlock(0)));
+  arcs0->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberArcs->GetBlock(0)));
+
+  vtkNew<vtkUnstructuredGrid> nodes1;
+  vtkNew<vtkUnstructuredGrid> arcs1;
+  nodes1->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberNodes->GetBlock(1)));
+  arcs1->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberArcs->GetBlock(1)));
+
+  memberNodes->SetBlock(0,nodes0);
+  memberNodes->SetBlock(1,nodes1);
+  memberArcs->SetBlock(0,arcs0);
+  memberArcs->SetBlock(1,arcs1);
+
+  // vtkNew<vtkMultiBlockDataSet> al1;
+  // al1->DeepCopy(alignment);
+  // alignments->SetBlock(0,al1);
+
+  matchings[0] = std::vector<ttk::SimplexId>(nodes0->GetNumberOfPoints(),-1);
+  matchings[1] = std::vector<ttk::SimplexId>(nodes1->GetNumberOfPoints(),-1);
+  auto alignmentMatching0 = vtkUnstructuredGrid::SafeDownCast(alignmentMatching->GetBlock(0));
+  auto alignmentMatching1 = vtkUnstructuredGrid::SafeDownCast(alignmentMatching->GetBlock(1));
+  for(ttk::SimplexId cellIdx = 0; cellIdx < alignmentMatching0->GetNumberOfCells(); cellIdx++) {
+    ttk::SimplexId id1 = alignmentMatching0->GetCellData()->GetArray("tree1NodeId")->GetComponent(cellIdx,0);
+    ttk::SimplexId id2 = alignmentMatching0->GetCellData()->GetArray("tree2NodeId")->GetComponent(cellIdx,0);
+    ttk::SimplexId n1 = nodes0->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
+    ttk::SimplexId n2 = nodes0->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
+    matchings[0][n2] = n1;
+  }
+  for(ttk::SimplexId cellIdx = 0; cellIdx < alignmentMatching1->GetNumberOfCells(); cellIdx++) {
+    ttk::SimplexId id1 = alignmentMatching1->GetCellData()->GetArray("tree1NodeId")->GetComponent(cellIdx,0);
+    ttk::SimplexId id2 = alignmentMatching1->GetCellData()->GetArray("tree2NodeId")->GetComponent(cellIdx,0);
+    ttk::SimplexId n1 = nodes1->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
+    ttk::SimplexId n2 = nodes1->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
+    matchings[1][n2] = n1;
+  }
+
+  for(size_t i=2; i<inputNodes->GetNumberOfBlocks(); i++){
+
+    // nodemb->SetBlock(0, vtkMultiBlockDataSet::SafeDownCast(alignment2->GetBlock(0))->GetBlock(0));
+    // nodemb->SetBlock(1, inputNodes->GetBlock(2));
+    // arcmb->SetBlock(0, vtkMultiBlockDataSet::SafeDownCast(alignment2->GetBlock(1))->GetBlock(0));
+    // arcmb->SetBlock(1, inputArcs->GetBlock(2));
+    mtmb->DeepCopy(alignment);
+    vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))->SetNumberOfBlocks(2);
+    vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))->SetBlock(1,inputNodes->GetBlock(i));
+    vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))->SetNumberOfBlocks(2);
+    vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))->SetBlock(1,inputArcs->GetBlock(i));
+
+    // mtmb->SetBlock(0, nodemb);
+    // mtmb->SetBlock(1, arcmb);
+    c->SetInputDataObject(0, mtmb);
+    c->SetAlpha((float)1/(float)i);
+    c->Modified();
+    c->Update();
+
+    // alignment = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(1));
+    alignment->DeepCopy(c->GetOutputDataObject(1));
+    alignmentMatching = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(2));
+    std::cout << vtkMultiBlockDataSet::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(alignment)->GetBlock(1))->GetNumberOfPoints() << std::endl;
+
+    alignmentMembers = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(0));
+    alignmentMemberNodes = vtkMultiBlockDataSet::SafeDownCast(alignmentMembers->GetBlock(0));
+    alignmentMemberArcs = vtkMultiBlockDataSet::SafeDownCast(alignmentMembers->GetBlock(1));
+
+    vtkNew<vtkUnstructuredGrid> nodesi;
+    vtkNew<vtkUnstructuredGrid> arcsi;
+    nodesi->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberNodes->GetBlock(1)));
+    arcsi->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberArcs->GetBlock(1)));
+    memberNodes->SetBlock(i,nodesi);
+    memberArcs->SetBlock(i,arcsi);
+
+    vtkNew<vtkUnstructuredGrid> nodesa;
+    vtkNew<vtkUnstructuredGrid> arcsa;
+    nodesa->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberNodes->GetBlock(0)));
+    arcsa->DeepCopy(vtkUnstructuredGrid::SafeDownCast(alignmentMemberArcs->GetBlock(0)));
+
+    auto alignmentNodes = vtkUnstructuredGrid::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(alignment)->GetBlock(0))->GetBlock(0));
+    auto alignmentArcs = vtkUnstructuredGrid::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(alignment)->GetBlock(0))->GetBlock(1));
+
+    // vtkNew<vtkMultiBlockDataSet> al;
+    // al->DeepCopy(alignment);
+    // alignments->SetBlock(i-1,al);
+
+    matchings[i] = std::vector<ttk::SimplexId>(nodesi->GetNumberOfPoints(),-1);
+    alignmentMatching0 = vtkUnstructuredGrid::SafeDownCast(alignmentMatching->GetBlock(0));
+    alignmentMatching1 = vtkUnstructuredGrid::SafeDownCast(alignmentMatching->GetBlock(1));
+    for(ttk::SimplexId cellIdx = 0; cellIdx < alignmentMatching0->GetNumberOfCells(); cellIdx++) {
+      ttk::SimplexId id1 = alignmentMatching0->GetCellData()->GetArray("tree1NodeId")->GetComponent(cellIdx,0);
+      ttk::SimplexId id2 = alignmentMatching0->GetCellData()->GetArray("tree2NodeId")->GetComponent(cellIdx,0);
+      ttk::SimplexId n1 = alignmentNodes->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
+      ttk::SimplexId n2 = nodesa->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
+      assert(n1>=0 && n1<alignmentNodes->GetNumberOfPoints());
+      assert(n2>=0 && n2<nodesa->GetNumberOfPoints());
+      for(size_t j=0; j<i; j++){
+        for(size_t k=0; k<matchings[j].size(); k++){
+          if(matchings[j][k]==n2){
+            matchings[j][k]=n1;
+          }
+        }
+      }
+    }
+    for(ttk::SimplexId cellIdx = 0; cellIdx < alignmentMatching1->GetNumberOfCells(); cellIdx++) {
+      ttk::SimplexId id1 = alignmentMatching1->GetCellData()->GetArray("tree1NodeId")->GetComponent(cellIdx,0);
+      ttk::SimplexId id2 = alignmentMatching1->GetCellData()->GetArray("tree2NodeId")->GetComponent(cellIdx,0);
+      ttk::SimplexId n1 = alignmentNodes->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
+      ttk::SimplexId n2 = nodesi->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
+      assert(n1>=0 && n1<alignmentNodes->GetNumberOfPoints());
+      assert(n2>=0 && n2<nodesi->GetNumberOfPoints());
+      matchings[i][n2] = n1;
+    }
+  }
+
+  members->SetBlock(0,memberNodes);
+  members->SetBlock(1,memberArcs);
+
+  auto baryNodes_ = vtkMultiBlockDataSet::SafeDownCast(alignment->GetBlock(0));
+  auto baryArcs_ = vtkMultiBlockDataSet::SafeDownCast(alignment->GetBlock(1));
+  auto baryNodes = vtkUnstructuredGrid::SafeDownCast(baryNodes_->GetBlock(0));
+  auto baryArcs = vtkUnstructuredGrid::SafeDownCast(baryArcs_->GetBlock(0));
+
+  ttk::SimplexId baryNumNodes = 0;
+  std::vector<ttk::SimplexId> baryNodeIsDummy(baryNodes->GetNumberOfPoints());
+  for(ttk::SimplexId i = 0; i < baryNodes->GetNumberOfPoints(); i++) {
+    auto nId
+      = vtkIntArray::SafeDownCast(baryNodes->GetPointData()->GetArray("NodeId"))
+          ->GetValue(i);
+    auto isDummy = vtkIntArray::SafeDownCast(
+                     baryNodes->GetPointData()->GetArray("isDummyNode"))
+                     ->GetValue(i);
+    if(!isDummy) {
+      baryNodeIsDummy[nId] = 1;
+      baryNumNodes += 1;
+    }
+  }
+  //std::cout << "survived the loop" << std::endl;
+
+  std::vector<ttk::SimplexId> baryParents(baryNodes->GetNumberOfPoints(), -1);
+  for(ttk::SimplexId i = 0; i < baryArcs->GetNumberOfCells(); i++) {
+    auto childId = vtkIntArray::SafeDownCast(
+                     baryArcs->GetCellData()->GetArray("downNodeId"))
+                     ->GetValue(i);
+    auto parentId
+      = vtkIntArray::SafeDownCast(baryArcs->GetCellData()->GetArray("upNodeId"))
+          ->GetValue(i);
+    baryParents[childId] = parentId;
+  }
+
+  std::vector<std::vector<ttk::SimplexId>> baryChildren(
+    baryNodes->GetNumberOfPoints());
+  ttk::SimplexId root = -1;
+  for(ttk::SimplexId i = 0; i < baryParents.size(); i++) {
+    auto parentId = baryParents[i];
+    if(parentId >= 0)
+      baryChildren[parentId].push_back(i);
+    if(parentId == -1 && baryNodeIsDummy[i])
+      root = i;
+  }
+
+  std::stack<ttk::SimplexId> s;
+  s.push(root);
+  ttk::SimplexId idx = 0;
+  auto ordering_baryNodes
+    = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  while(!s.empty()) {
+    auto node = s.top();
+    s.pop();
+    ordering_baryNodes[node] = idx;
+    idx++;
+    for(auto child : baryChildren[node]) {
+      s.push(child);
+    }
+  }
+
+  // compute ordering of barycenter branchIDs
+  ordering_branches = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  auto bary_branches = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  auto bary_scalars = std::vector<double>(baryNodes->GetNumberOfPoints(), -1);
+  for(ttk::SimplexId i = 0; i < baryNodes->GetNumberOfPoints(); i++) {
+    auto posX = baryNodes->GetPoint(i)[0];
+    // auto posY = baryNodes->GetPoint(i)[1];
+    ttk::SimplexId nId
+      = baryNodes->GetPointData()->GetArray("NodeId")->GetComponent(i, 0);
+    ttk::SimplexId scalar
+      = baryNodes->GetPointData()->GetArray("Scalar")->GetComponent(i, 0);
+    // if(!baryChildren[nId].empty()) continue;
+    auto bId = vtkIntArray::SafeDownCast(
+                 baryNodes->GetPointData()->GetArray("BranchNodeID"))
+                 ->GetValue(i);
+    // ordering_branches[bId] = posX;
+    ordering_branches[bId] = ordering_baryNodes[nId];
+    bary_branches[nId] = bId;
+    bary_scalars[nId] = scalar;
+  }
+}
+
+
+/**
+ * TODO 10: Pass VTK data to the base code and convert base code output to VTK
+ *
+ * This method is called during the pipeline execution to update the
+ * already initialized output data objects based on the given input
+ * data objects and filter parameters.
+ *
+ * Note:
+ *     1) The passed input data objects are validated based on the information
+ *        provided by the FillInputPortInformation method.
+ *     2) The output objects are already initialized based on the information
+ *        provided by the FillOutputPortInformation method.
+ */
+int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
+                                          vtkInformationVector **inputVector,
+                                          vtkInformationVector *outputVector) {
+
+
+
+  //------------------------------------------------------------
+  // internal vtk filter approach
+  ttk::Timer completeTimer;
+  auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
+  if(!inputNodes)
+    return 0;
+  auto inputArcs = vtkMultiBlockDataSet::GetData(inputVector[1]);
+  if(!inputArcs)
+    return 0;
+  auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
+  if(!domains)
+    return 0;
+
+  bool isJoinTree = false;
+  std::cout << inputNodes->GetNumberOfBlocks() << std::endl;
+  if(inputNodes->GetNumberOfBlocks()>0){
+    auto inputNodes0 = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(0));
+    isJoinTree = inputNodes0->GetPointData()->GetArray("Scalar")->GetComponent(0,0) < inputNodes0->GetPointData()->GetArray("Scalar")->GetComponent(1,0);
+  }
+  std::cout << "isJoinTree: " << isJoinTree << std::endl;
+
+  // bool sliding_window = true;
+  // ttk::SimplexId windowSize = 5;
+  std::vector<double> ordering_branches;
+  vtkNew<vtkMultiBlockDataSet> members;
+  vtkNew<vtkMultiBlockDataSet> alignment;
+  std::vector<std::vector<ttk::SimplexId>> matchings;
+  std::vector<std::vector<ttk::SimplexId>> alignmentMatchings;
+  std::vector<double> distances;
+
+  if(this->layoutMode==2 && !this->useSlidingWindow) {
+    vtkNew<vtkMultiBlockDataSet> mtmb;
+    mtmb->SetNumberOfBlocks(2);
+    mtmb->SetBlock(0, inputNodes);
+    mtmb->SetBlock(1, inputArcs);
+
+    computeBaryBranchOrdering(
+      mtmb.GetPointer(), members.GetPointer(), ordering_branches);
+  }
+  if(this->layoutMode==3) {
+    computeAlignmentOrdering(
+      inputNodes, inputArcs, members.GetPointer(), alignment.GetPointer(), ordering_branches,alignmentMatchings);
+    // auto outputmb = vtkMultiBlockDataSet::GetData(outputVector, 0);
+    // outputmb->DeepCopy(alignments);
+    // auto outputMembers = vtkMultiBlockDataSet::GetData(outputVector, 1);
+    // outputMembers->DeepCopy(members);
+    // return 1;
+  }
+  auto matchings_mb = vtkMultiBlockDataSet::New();
+  auto outputMatchings = vtkMultiBlockDataSet::GetData(outputVector, 2);
+
+  if(this->layoutMode==1){
+    vtkNew<vtkMultiBlockDataSet> mtmb;
+    mtmb->SetNumberOfBlocks(2);
+    mtmb->SetBlock(0, inputNodes);
+    mtmb->SetBlock(1, inputArcs);
+    vtkNew<ttkMergeTreeFeatureTracking> ft;
+    ft->SetBackend(backend);
+    if(this->backend==3){
+      ft->SetBranchMetric(branchMetric);
+    }
+
+    ft->SetInputDataObject(0,mtmb.GetPointer());
+    ft->SetImportantPairs(0);
+    if(this->backend==0){
+      ft->SetEpsilonTree1(5);
+    } else {
+      ft->SetEpsilonTree1(0);
+    }
+    ft->SetEpsilon2Tree1(100);
+    ft->SetEpsilon3Tree1(100);
+    //ft->SetPlanarLayout(true);
+    //ft->SetNormalizedWasserstein(false);
+    ft->Update();
+    members->DeepCopy(
+      vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(0)));
+    auto distances_vtk = vtkUnstructuredGrid::SafeDownCast(ft->GetOutputDataObject(2));
+    for(ttk::SimplexId i=0; i<distances_vtk->GetNumberOfPoints(); i++){
+      distances.push_back(distances_vtk->GetPoint(i)[1]);
+    }
+
+    matchings_mb->ShallowCopy(vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(1)));
+    outputMatchings->ShallowCopy(vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(1)));
+    matchings = std::vector<std::vector<ttk::SimplexId>>(matchings_mb->GetNumberOfBlocks());
+    for(ttk::SimplexId i=0; i<matchings.size(); i++){
+      auto matchingi_vtk = vtkUnstructuredGrid::SafeDownCast(matchings_mb->GetBlock(i));
+      auto memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
+      auto currmemberNodes = vtkUnstructuredGrid::SafeDownCast(memberNodes->GetBlock(i+1));
+      auto prevmemberNodes = vtkUnstructuredGrid::SafeDownCast(memberNodes->GetBlock(i));
+      matchings[i] = std::vector<ttk::SimplexId>(currmemberNodes->GetNumberOfPoints(),-1);
+      for(ttk::SimplexId cellIdx = 0; cellIdx < matchingi_vtk->GetNumberOfCells(); cellIdx++) {
+        ttk::SimplexId id1 = matchingi_vtk->GetCellData()->GetArray("tree1NodeId")->GetComponent(cellIdx,0);
+        ttk::SimplexId id2 = matchingi_vtk->GetCellData()->GetArray("tree2NodeId")->GetComponent(cellIdx,0);
+        ttk::SimplexId n1 = prevmemberNodes->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
+        ttk::SimplexId n2 = currmemberNodes->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
+        matchings[i][n2] = n1;
+      }
+    }
+  }
+
+  auto memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
+  auto memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
+
+  std::vector<std::vector<double>> linearizations;
+  std::vector<std::vector<ttk::SimplexId>> segmentations;
+  std::vector<std::vector<ttk::SimplexId>> barycenterRefs;
+  ttk::SimplexId maxlen = 0;
+
+  auto prevMatching = std::vector<ttk::SimplexId>();
+  auto prevOrdering = std::vector<double>();
+  for(ttk::SimplexId blockIdx = 0; blockIdx < inputNodes->GetNumberOfBlocks();
+      blockIdx++) {
+
+    ttk::SimplexId memberIdx = blockIdx;
+    if(this->layoutMode==2 && this->useSlidingWindow) {
+      vtkNew<vtkMultiBlockDataSet> mtmb;
+      mtmb->SetNumberOfBlocks(2);
+      mtmb->SetBlock(0, vtkNew<vtkMultiBlockDataSet>());
+      mtmb->SetBlock(1, vtkNew<vtkMultiBlockDataSet>());
+      ttk::SimplexId sb = std::max((int)(blockIdx - this->windowSize), 0);
+      memberIdx = this->windowSize;
+      if(blockIdx - this->windowSize < 0)
+        memberIdx += blockIdx - this->windowSize;
+      ttk::SimplexId eb
+        = std::min(blockIdx + this->windowSize,
+                   (ttk::SimplexId)inputNodes->GetNumberOfBlocks() - 1);
+      this->printMsg("Computing barycenter from blocks " + std::to_string(sb) + " to " + std::to_string(eb) , 0.5 + 0.5*(blockIdx)/(inputNodes->GetNumberOfBlocks()),0);
+      vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))
+        ->SetNumberOfBlocks(eb - sb + 1);
+      vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))
+        ->SetNumberOfBlocks(eb - sb + 1);
+      ttk::SimplexId bidx = 0;
+      for(ttk::SimplexId b = sb; b <= eb; b++) {
+        vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))
+          ->SetBlock(bidx, inputNodes->GetBlock(b));
+        vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))
+          ->SetBlock(bidx, inputArcs->GetBlock(b));
+        bidx++;
+      }
+      computeBaryBranchOrdering(
+        mtmb.GetPointer(), members.GetPointer(), ordering_branches);
+      memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
+      memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
+    }
+
+    ttk::SimplexId totalSize = 0;
+    std::vector<ttk::SimplexId> arcRegions;
+    auto memiNodes
+      = vtkUnstructuredGrid::SafeDownCast(memberNodes->GetBlock(memberIdx));
+    auto memiArcs
+      = vtkUnstructuredGrid::SafeDownCast(memberArcs->GetBlock(memberIdx));
+    auto memiDomain = vtkDataSet::SafeDownCast(domains->GetBlock(blockIdx));
+
+    auto scalarArrayDomain = this->GetInputArrayToProcess(0, memiDomain);
+    // # print(" ")
+
+    auto nodePositions = std::vector<double>(memiNodes->GetNumberOfPoints(),-1);
+    if(this->layoutMode==1 && blockIdx>0){
+      prevMatching = matchings[blockIdx-1];
+    }
+
+    // prepare scalar values in segments
+    std::vector<std::vector<double>> memiSegmentScalars(
+      memiDomain->GetPointData()->GetArray("SegmentationId")->GetRange()[1]+1);
+
+    for(ttk::SimplexId j = 0; j < memiDomain->GetNumberOfPoints(); j++) {
+      auto scalar = scalarArrayDomain->GetComponent(j, 0);
+      auto segId = ttkSimplexIdTypeArray::SafeDownCast(
+                     memiDomain->GetPointData()->GetArray("SegmentationId"))
+                     ->GetValue(j);
+      memiSegmentScalars[segId].push_back(scalar);
+    }
+    for(ttk::SimplexId i = 0; i < memiSegmentScalars.size(); i++) {
+      // sort in descending order if we're a join tree, ascending if we're a split tree
+      if(isJoinTree){
+        std::sort(memiSegmentScalars[i].begin(),memiSegmentScalars[i].end(),std::greater<double>());
+      }
+      else{
+        std::sort(memiSegmentScalars[i].begin(),memiSegmentScalars[i].end());
+      }
+    }
+
+    // get node properties of member tree
+    ttk::SimplexId numNodesi = 0;
+    ttk::SimplexId nnmti
+      = vtkUnstructuredGrid::SafeDownCast(inputArcs->GetBlock(blockIdx))
+          ->GetNumberOfPoints();
+    std::vector<ttk::SimplexId> memiNodeIsDummy(memiNodes->GetNumberOfPoints());
+    std::vector<double> memiScalars(memiNodes->GetNumberOfPoints());
+    for(ttk::SimplexId i = 0; i < memiNodes->GetNumberOfPoints(); i++) {
+      auto nId = vtkIntArray::SafeDownCast(
+                   memiNodes->GetPointData()->GetArray("NodeId"))
+                   ->GetValue(i);
+      auto isDummy = vtkIntArray::SafeDownCast(
+                       memiNodes->GetPointData()->GetArray("isDummyNode"))
+                       ->GetValue(i);
+      auto scalar
+        = memiNodes->GetPointData()->GetArray("Scalar")->GetComponent(i, 0);
+      if(!isDummy) {
+        memiNodeIsDummy[nId] = 1;
+        memiScalars[nId] = scalar;
+        numNodesi += 1;
+      }
+    }
+
+    // create tree structure of member tree (parent pointers)
+    std::vector<ttk::SimplexId> memiParents(memiNodes->GetNumberOfPoints(), -1);
+    for(ttk::SimplexId i = 0; i < memiArcs->GetNumberOfCells(); i++) {
+      auto childId = vtkIntArray::SafeDownCast(
+                       memiArcs->GetCellData()->GetArray("downNodeId"))
+                       ->GetValue(i);
+      auto parentId = vtkIntArray::SafeDownCast(
+                        memiArcs->GetCellData()->GetArray("upNodeId"))
+                        ->GetValue(i);
+      memiParents[childId] = parentId;
+    }
+
+    //  create tree structure of member tree (children lists)
+    std::vector<std::vector<ttk::SimplexId>> memiChildren(
+      memiNodes->GetNumberOfPoints());
+    ttk::SimplexId root = -1;
+    ttk::SimplexId maxDegree = 0;
+    for(ttk::SimplexId i = 0; i < memiParents.size(); i++) {
+      auto parentId = memiParents[i];
+      if(parentId >= 0) {
+        memiChildren[parentId].push_back(i);
+        maxDegree
+          = std::max(maxDegree, (ttk::SimplexId)memiChildren[parentId].size());
+        // std::cout << i << "/" << memiChildren[parentId].size() << " ; ";
+      }
+
+      if(parentId == -1 && memiNodeIsDummy[i])
+        root = i;
+    }
+
+
+    // get barycenter branchIDs of member tree nodes
+    std::vector<ttk::SimplexId> branchNodeIDs;
+    if(this->layoutMode == 2){
+      branchNodeIDs = std::vector<ttk::SimplexId>(memiNodes->GetNumberOfPoints(), -1);
+      for(ttk::SimplexId j = 0; j < memiNodes->GetNumberOfPoints(); j++) {
+        auto nId = vtkIntArray::SafeDownCast(
+                    memiNodes->GetPointData()->GetArray("NodeId"))
+                    ->GetValue(j);
+        auto bId = vtkIntArray::SafeDownCast(
+                    memiNodes->GetPointData()->GetArray("BranchBaryNodeID"))
+                    ->GetValue(j);
+        branchNodeIDs[nId] = bId;
+      }
+    }
+    if(this->layoutMode==3){
+      branchNodeIDs = std::vector<ttk::SimplexId>(memiNodes->GetNumberOfPoints(), -1);
+      for(ttk::SimplexId j = 0; j < memiNodes->GetNumberOfPoints(); j++) {
+        auto nId = vtkIntArray::SafeDownCast(
+                    memiNodes->GetPointData()->GetArray("NodeId"))
+                    ->GetValue(j);
+        auto bID = vtkUnstructuredGrid::SafeDownCast(vtkMultiBlockDataSet::SafeDownCast(alignment->GetBlock(0))->GetBlock(0))->GetPointData()->GetArray("BranchNodeID")->GetTuple1(alignmentMatchings[blockIdx][nId]);
+        branchNodeIDs[nId] = bID;
+      }
+    }
+
+    // compute ordering of member tree nodes for layout (derived from barycenter
+    // branchIDs of leaves through dfs)
+    std::vector<double> memiOrdering;
+    if(this->layoutMode == 2 || this->layoutMode == 3){
+      memiOrdering = std::vector<double>(memiNodes->GetNumberOfPoints(), -1);
+    }
+    if(this->layoutMode == 1 && blockIdx>0){
+      memiOrdering = std::vector<double>(memiNodes->GetNumberOfPoints(), std::numeric_limits<double>::infinity());
+    }
+    std::stack<ttk::SimplexId> s1;
+    std::stack<ttk::SimplexId> s2;
+    std::vector<ttk::SimplexId> postorder;
+    std::vector<ttk::SimplexId> preorder;
+    s1.push(root);
+    while(!s1.empty()) {
+      auto node = s1.top();
+      s1.pop();
+      s2.push(node);
+      preorder.push_back(node);
+      for(auto child : memiChildren[node]) {
+        s1.push(child);
+      }
+    }
+    while(!s2.empty()) {
+      auto node = s2.top();
+      s2.pop();
+      postorder.push_back(node);
+    }
+    for(auto node : postorder) {
+      if(memiChildren[node].size() == 0) {
+        if(this->layoutMode==2 || this->layoutMode == 3){
+          memiOrdering[node] = ordering_branches[branchNodeIDs[node]];
+        }
+        if(this->layoutMode==1 && blockIdx>0 && prevMatching[node]>=0){
+          memiOrdering[node] = prevOrdering[prevMatching[node]];
+        }
+        // std:: cout << memiOrdering[node] << std::endl;
+        // return memiOrdering[node];
+      } else {
+        if(this->layoutMode==2 || this->layoutMode == 3 || blockIdx>0){
+          double oidx = std::numeric_limits<double>::infinity();
+          for(auto child : memiChildren[node]) {
+            auto cidx = memiOrdering[child];
+            if(cidx < oidx)
+              oidx = cidx;
+          }
+          memiOrdering[node] = oidx;
+          // std:: cout << memiOrdering[node] << std::endl;
+          // return oidx;
+        }
+      }
+    }
+
+    // # get area sizes and segmentation ids for member tree nodes (from parent
+    // edge)
+    std::vector<ttk::SimplexId> memiSizes(memiNodes->GetNumberOfPoints());
+    std::vector<ttk::SimplexId> memiSegs(memiNodes->GetNumberOfPoints());
+    for(ttk::SimplexId j = 0; j < memiArcs->GetNumberOfCells(); j++) {
+      auto rS
+        = memiArcs->GetCellData()->GetArray("RegionSize")->GetComponent(j, 0);
+      auto isDummy = vtkIntArray::SafeDownCast(
+                       memiArcs->GetCellData()->GetArray("isDummyArc"))
+                       ->GetValue(j);
+      auto downNodeId = vtkIntArray::SafeDownCast(
+                          memiArcs->GetCellData()->GetArray("downNodeId"))
+                          ->GetValue(j);
+      ttk::SimplexId segId = memiArcs->GetCellData()
+                               ->GetArray("SegmentationId")
+                               ->GetComponent(j, 0);
+      memiSizes[downNodeId] = ttk::SimplexId(rS);
+      memiSegs[downNodeId] = ttk::SimplexId(segId);
+    }
+
+    // # compute linearization based on odering
+    std::vector<double> linearization;
+    std::vector<ttk::SimplexId> segmentation;
+    std::vector<ttk::SimplexId> barycenterRef;
+    dfs_linearization(memiChildren[root][0], linearization, segmentation,
+                      barycenterRef, nodePositions, memiChildren, memiSegmentScalars,
+                      memiSizes, memiSegs, branchNodeIDs, memiScalars,
+                      memiOrdering,prevMatching,prevOrdering,blockIdx);
+    linearizations.push_back(linearization);
+    segmentations.push_back(segmentation);
+    barycenterRefs.push_back(barycenterRef);
+    // print(len(linearization),len(segmentation))
+    if(linearization.size() > maxlen) {
+      maxlen = linearization.size();
+    }
+    prevOrdering = nodePositions;
+  }
+  // write linearization to output vti
+
+  auto outputmb = vtkMultiBlockDataSet::GetData(outputVector, 0);
+  outputmb->SetNumberOfBlocks(1);
+  auto outputMembers = vtkMultiBlockDataSet::GetData(outputVector, 1);
+  outputMembers->ShallowCopy(members);
+  vtkNew<vtkImageData> tmtm;
+  tmtm->SetDimensions(linearizations.size()+1,maxlen+1,1);
+  tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*scaling,1,1);
+  // tmtm->SetSpacing(1024,1,1);
+  tmtm->SetOrigin(0,0,0);
+
+  vtkNew<vtkFloatArray> linArray{};
+  vtkNew<vtkIntArray> segArray{};
+  vtkNew<vtkIntArray> blockArray{};
+  vtkNew<vtkIntArray> barArray{};
+  vtkNew<vtkFloatArray> distArray{};
+
+
+  linArray->SetName("Scalar");
+  linArray->SetNumberOfComponents(1);
+  linArray->SetNumberOfTuples(linearizations.size() * maxlen);
+
+  segArray->SetName("SegmentationId");
+  segArray->SetNumberOfComponents(1);
+  segArray->SetNumberOfTuples(linearizations.size() * maxlen);
+
+  blockArray->SetName("BlockId");
+  blockArray->SetNumberOfComponents(1);
+  blockArray->SetNumberOfTuples(linearizations.size() * maxlen);
+
+  barArray->SetName("BaryBranchId");
+  barArray->SetNumberOfComponents(1);
+  barArray->SetNumberOfTuples(linearizations.size() * maxlen);
+
+  distArray->SetName("Distance");
+  distArray->SetNumberOfComponents(1);
+  distArray->SetNumberOfTuples(distances.size());
+
+
+
+  ttk::SimplexId k = 0;
+  for(ttk::SimplexId j = 0; j < maxlen; j++) {
+    for(ttk::SimplexId i = 0; i < linearizations.size(); i++) {
+      auto v = j < linearizations[i].size() ? linearizations[i][j] : 0;
+      auto s = j < linearizations[i].size() ? segmentations[i][j] : 0;
+      auto b = j < linearizations[i].size() ? barycenterRefs[i][j] : 0;
+      linArray->SetValue(k, v);
+      segArray->SetValue(k, s);
+      blockArray->SetValue(k, i);
+      barArray->SetValue(k, b);
+      k += 1;
+    }
+  }
+  for(ttk::SimplexId i = 0; i < distances.size(); i++) {
+    distArray->SetValue(i, distances[i]);
+  }
+
+  tmtm->GetCellData()->AddArray(linArray);
+  tmtm->GetCellData()->AddArray(segArray);
+  tmtm->GetCellData()->AddArray(blockArray);
+  tmtm->GetCellData()->AddArray(barArray);
+  tmtm->GetFieldData()->AddArray(distArray);
+
+
+  outputmb->SetBlock(0,tmtm);
+  this->printMsg("Computed temporal merge tree map", 1, completeTimer.getElapsedTime());
+  return 1;
+}
