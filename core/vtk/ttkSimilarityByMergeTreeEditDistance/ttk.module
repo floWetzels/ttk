@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityByMergeTreeEditDistance
+SOURCES
+  ttkSimilarityByMergeTreeEditDistance.cpp
+HEADERS
+  ttkSimilarityByMergeTreeEditDistance.h
+DEPENDS
+  similarityByMergeTreeEditDistance
+  ttkSimilarityAlgorithm
