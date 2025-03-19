@@ -1,0 +1,9 @@
+NAME
+  ttkMergeTreeRemake
+SOURCES
+  ttkMergeTreeRemake.cpp
+HEADERS
+  ttkMergeTreeRemake.h
+DEPENDS
+  MergeTreeRemake
+  ttkAlgorithm
