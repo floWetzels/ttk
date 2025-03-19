@@ -28,6 +28,11 @@
         <Documentation>Aggregate objects across multiple executions.</Documentation>
       </IntVectorProperty>
 
+      <IntVectorProperty name="Flatten" command="SetFlatten" number_of_elements="1" default_values="0">
+        <BooleanDomain name="bool" />
+        <Documentation>TODO.</Documentation>
+      </IntVectorProperty>
+
       ${DEBUG_WIDGETS}
 
       <Hints>
