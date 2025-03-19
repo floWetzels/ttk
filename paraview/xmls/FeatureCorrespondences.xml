@@ -27,9 +27,9 @@
 
       <IntVectorProperty name="OptimizationMethod" command="SetOptimizationMethod" number_of_elements="1" default_values="1">
         <EnumerationDomain name="enum">
-          <!--<Entry value="0" text="N Smallest Correspondences" />-->
+          <Entry value="0" text="N Smallest Correspondences" />
           <Entry value="1" text="N Largest Correspondences" />
-          <!--<Entry value="10" text="Threshold Below" />-->
+          <Entry value="10" text="Threshold Below" />
           <Entry value="11" text="Threshold Above" />
         </EnumerationDomain>
         <Documentation>Optimization Method.</Documentation>

@@ -29,9 +29,6 @@ class vtkFieldData;
 class TTKSIMILARITYALGORITHM_EXPORT ttkSimilarityAlgorithm
   : public ttkAlgorithm {
 
-private:
-  vtkSmartPointer<vtkDataObject> PreviousInputs;
-
 public:
   static ttkSimilarityAlgorithm *New();
   vtkTypeMacro(ttkSimilarityAlgorithm, ttkAlgorithm);
@@ -60,6 +57,8 @@ public:
 protected:
   ttkSimilarityAlgorithm();
   ~ttkSimilarityAlgorithm();
+
+  vtkSmartPointer<vtkDataObject> PreviousInputs;
 
   int FillInputPortInformation(int port, vtkInformation *info) override;
   int FillOutputPortInformation(int port, vtkInformation *info) override;

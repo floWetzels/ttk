@@ -29,8 +29,7 @@ int ttkSimilarityAlgorithm::FillInputPortInformation(int port,
                                                      vtkInformation *info) {
   if(port >= 0 && port < this->GetNumberOfInputPorts()) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
-    info->Append(
-      vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
+    info->Append(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
     return 1;
   }
   return 0;
@@ -74,8 +73,6 @@ int ttkSimilarityAlgorithm::RequestData(vtkInformation *,
 
   auto output = vtkImageData::GetData(outputVector);
   auto input = vtkDataObject::GetData(inputVector[0]);
-
-  std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> sequence;
 
   auto iterationInformation = vtkDoubleArray::SafeDownCast(input->GetFieldData()->GetArray("_ttk_IterationInfo"));
   if(iterationInformation->GetValue(0)>0){

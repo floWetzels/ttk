@@ -121,19 +121,24 @@ int ttkBlockAggregator::RequestData(vtkInformation *ttkNotUsed(request),
       vtkDataObject::GetData(inputVector[0], 0)
     );
   } else if(nInputs>1) {
-    // if there is more than one input connection aggregate each connection in an own MB
-    if(iterationIndex<1){
-      // in the first iteration initialize the list of each input connection
+    if(this->Flatten){
       for(size_t i = 0; i < nInputs; i++)
-        this->AggregatedMultiBlockDataSet->SetBlock(i, vtkSmartPointer<vtkMultiBlockDataSet>::New());
-    }
+        this->AggregateBlock(this->AggregatedMultiBlockDataSet, vtkDataObject::GetData(inputVector[0], i));
+    } else {
+      // if there is more than one input connection aggregate each connection in an own MB
+      if(iterationIndex<1){
+        // in the first iteration initialize the list of each input connection
+        for(size_t i = 0; i < nInputs; i++)
+          this->AggregatedMultiBlockDataSet->SetBlock(i, vtkSmartPointer<vtkMultiBlockDataSet>::New());
+      }
 
-    // add each object to the list of the corresponding connection
-    for(size_t i = 0; i < nInputs; i++)
-      this->AggregateBlock(
-        static_cast<vtkMultiBlockDataSet*>(this->AggregatedMultiBlockDataSet->GetBlock(i)),
-        vtkDataObject::GetData(inputVector[0], i)
-      );
+      // add each object to the list of the corresponding connection
+      for(size_t i = 0; i < nInputs; i++)
+        this->AggregateBlock(
+          static_cast<vtkMultiBlockDataSet*>(this->AggregatedMultiBlockDataSet->GetBlock(i)),
+          vtkDataObject::GetData(inputVector[0], i)
+        );
+    }
   }
 
   // Prepare output
