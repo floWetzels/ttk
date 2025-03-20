@@ -25,11 +25,11 @@ public:
   vtkSetMacro(NormalizeMatrix, bool);
   vtkGetMacro(NormalizeMatrix, bool);
 
-  void SetWindowSize(int s) {
-    windowSize = s;
+  void SetBranchMetric(int b) {
+    branchMetric = b;
     Modified();
   }
-  vtkGetMacro(windowSize, int);
+  vtkGetMacro(branchMetric, int);
 
   void SetBackend(int b) {
     backend = b;

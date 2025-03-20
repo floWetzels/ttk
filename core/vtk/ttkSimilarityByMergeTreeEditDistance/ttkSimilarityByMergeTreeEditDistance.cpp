@@ -6,13 +6,16 @@
 #include <vtkFloatArray.h>
 #include <vtkImageData.h>
 #include <vtkMultiBlockDataSet.h>
+#include <vtkUnstructuredGrid.h>
 #include <vtkPointSet.h>
 
 #include <vtkPointData.h>
+#include <vtkCellData.h>
 #include <vtkStringArray.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
+#include <ttkMergeTreeFeatureTracking.h>
 
 vtkStandardNewMacro(ttkSimilarityByMergeTreeEditDistance);
 
@@ -28,7 +31,7 @@ int ttkSimilarityByMergeTreeEditDistance::ComputeSimilarityMatrix(
   auto t0 = vtkMultiBlockDataSet::SafeDownCast(inputDataObjects0);
   auto t1 = vtkMultiBlockDataSet::SafeDownCast(inputDataObjects1);
   if(!t0 || !t1)
-    return !this->printErr("Input data objects need to be vtkPointSets.");
+    return !this->printErr("Input data objects need to be vtkMultiBlockDataSets.");
   
   vtkNew<vtkMultiBlockDataSet> mtmb;
   vtkNew<vtkMultiBlockDataSet> mtnodes;
@@ -74,25 +77,39 @@ int ttkSimilarityByMergeTreeEditDistance::ComputeSimilarityMatrix(
 
   // initialize similarity matrix i.e., distance matrix
   similarityMatrix->SetDimensions(nodes0->GetNumberOfPoints(), nodes1->GetNumberOfPoints(), 1);
-  // similarityMatrix->AllocateScalars(coords0->GetDataType(), 1);
+  similarityMatrix->AllocateScalars(coords0->GetDataType(), 1);
   auto matrixData = similarityMatrix->GetPointData()->GetArray(0);
   matrixData->SetName("Matched");
   matrixData->SetNumberOfTuples(nodes0->GetNumberOfPoints()*nodes1->GetNumberOfPoints());
   matrixData->SetNumberOfComponents(1);
+  for(ttk::SimplexId i=0; i<nodes0->GetNumberOfPoints()*nodes1->GetNumberOfPoints(); i++){
+    matrixData->SetTuple1(i,0);
+  }
 
   auto matchings_mb = vtkMultiBlockDataSet::New();
   matchings_mb->ShallowCopy(vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(1)));
   for(ttk::SimplexId i=0; i<matchings_mb->GetNumberOfBlocks(); i++){
     auto matchingi_vtk = vtkUnstructuredGrid::SafeDownCast(matchings_mb->GetBlock(i));
-    matchings[i] = std::vector<ttk::SimplexId>(currmemberNodes->GetNumberOfPoints(),-1);
     for(ttk::SimplexId cellIdx = 0; cellIdx < matchingi_vtk->GetNumberOfCells(); cellIdx++) {
       ttk::SimplexId id1 = matchingi_vtk->GetCellData()->GetArray("tree1NodeId")->GetComponent(cellIdx,0);
       ttk::SimplexId id2 = matchingi_vtk->GetCellData()->GetArray("tree2NodeId")->GetComponent(cellIdx,0);
-      ttk::SimplexId n1 = nodes1->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
-      ttk::SimplexId n2 = nodes2->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
-      matrixData->SetTuple1(id1 + id2*nodes0->GetNumberOfPoints());
+      ttk::SimplexId n1 = nodes0->GetPointData()->GetArray("NodeId")->GetComponent(id1,0);
+      ttk::SimplexId n2 = nodes1->GetPointData()->GetArray("NodeId")->GetComponent(id2,0);
+      matrixData->SetTuple1(id1 + id2*nodes0->GetNumberOfPoints(),1);
     }
   }
+
+  int status = 0;
+
+  auto indexIdMap0 = this->GetInputArrayToProcess(0, nodes0);
+  auto indexIdMap1 = this->GetInputArrayToProcess(0, nodes1);
+  if(!indexIdMap0 || !indexIdMap1)
+    return !this->printErr("Unable to retrieve feature IDs.");
+
+  status = ttkSimilarityAlgorithm::AddIndexIdMaps(
+    similarityMatrix, indexIdMap0, indexIdMap1);
+  if(!status)
+    return 0;
 
   return 1;
 }
