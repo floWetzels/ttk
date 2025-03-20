@@ -32,8 +32,12 @@
 
 // TTK Include
 #include <ttkAlgorithm.h>
+#include <ComponentSize.h>
 
-class TTKCOMPONENTSIZE_EXPORT ttkComponentSize : public ttkAlgorithm {
+class TTKCOMPONENTSIZE_EXPORT ttkComponentSize
+  : public ttkAlgorithm,
+    protected ttk::ComponentSize
+{
 
 public:
   static ttkComponentSize *New();

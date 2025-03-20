@@ -58,7 +58,7 @@ namespace ttk {
       }
 
       return 1;
-    }
+    };
 
     template <typename DT>
     int sortAndReduceCorrespondencesPerFeature(DT *oMatrix,
@@ -123,6 +123,38 @@ namespace ttk {
       this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
 
       return 1; // return success
-    }
+    };
+
+    template <typename DT>
+    int twoPassOptimization(
+      DT *oMatrix,
+      const DT *iMatrix,
+      const int* mIds0,
+      const int* mIds1,
+      const int nRows,
+      const int nCols,
+
+      const float* fSize0,
+      const float* fSize1,
+      const int* fIds0,
+      const int* fIds1,
+      const int nFeatures0,
+      const int nFeatures1
+    ) const {
+      ttk::Timer timer;
+
+      const std::string msg = "Two Pass Optimization";
+      this->printMsg(msg, 0, 0, this->threadNumber_, debug::LineMode::REPLACE);
+
+      // TODO
+      for(size_t r=0; r<nRows; r++){
+        for(size_t c=0; c<nCols; c++){
+          oMatrix[r*nCols+c] = iMatrix[r*nCols+c]+1;
+        }
+      }
+
+      this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
+      return 1;
+    };
   };
 } // namespace ttk

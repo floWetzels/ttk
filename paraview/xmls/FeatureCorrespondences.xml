@@ -4,22 +4,36 @@
     <SourceProxy name="ttkFeatureCorrespondences" class="ttkFeatureCorrespondences" label="TTK FeatureCorrespondences">
       <Documentation long_help="FeatureCorrespondences Long" short_help="FeatureCorrespondences Short">TODO</Documentation>
 
-      <InputProperty name="Input" command="SetInputConnection">
+      <InputProperty name="Matrix" port_index="0" command="SetInputConnection">
         <ProxyGroupDomain name="groups">
           <Group name="sources" />
           <Group name="filters" />
         </ProxyGroupDomain>
         <DataTypeDomain name="input_type">
-          <DataType value="vtkImageData" />
+          <DataType value="vtkMultiBlockDataSet" />
         </DataTypeDomain>
-        <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
+        <InputArrayDomain name="matrix_point_arrays" attribute_type="point" number_of_components="1" />
         <Documentation>TODO.</Documentation>
       </InputProperty>
 
-      <StringVectorProperty name="Matrix" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
-        <ArrayListDomain attribute_type="Scalars" name="array_list">
+      <InputProperty name="Features" port_index="1" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <Hints>
+          <Optional />
+        </Hints>
+        <Documentation>TODO.</Documentation>
+      </InputProperty>
+
+      <StringVectorProperty name="Matrix_" label='Matrix' command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
+        <ArrayListDomain name="array_list" input_domain_name="matrix_point_arrays">
           <RequiredProperties>
-            <Property function="Input" name="Input" />
+            <Property function="Input" name="Matrix" />
           </RequiredProperties>
         </ArrayListDomain>
         <Documentation>TODO</Documentation>
@@ -31,6 +45,7 @@
           <Entry value="1" text="N Largest Correspondences" />
           <Entry value="10" text="Threshold Below" />
           <Entry value="11" text="Threshold Above" />
+          <Entry value="20" text="Two Pass Optimization" />
         </EnumerationDomain>
         <Documentation>Optimization Method.</Documentation>
       </IntVectorProperty>
@@ -67,3 +82,4 @@
     </SourceProxy>
   </ProxyGroup>
 </ServerManagerConfiguration>
+
