@@ -28,8 +28,7 @@ ttkSimilarityAlgorithm::~ttkSimilarityAlgorithm() {
 int ttkSimilarityAlgorithm::FillInputPortInformation(int port,
                                                      vtkInformation *info) {
   if(port >= 0 && port < this->GetNumberOfInputPorts()) {
-    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
-    info->Append(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
     return 1;
   }
   return 0;
@@ -38,7 +37,7 @@ int ttkSimilarityAlgorithm::FillInputPortInformation(int port,
 int ttkSimilarityAlgorithm::FillOutputPortInformation(int port,
                                                       vtkInformation *info) {
   if(port == 0) {
-    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkImageData");
+    info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
     return 1;
   }
   return 0;
@@ -67,25 +66,27 @@ int ttkSimilarityAlgorithm::BuildIdIndexMap(
   return 1;
 }
 
+vtkSmartPointer<vtkImageData> ttkSimilarityAlgorithm::InitializeMatrix(const std::string& name, const int& type, const int& nRows, const int& nCols){
+  auto matrix = vtkSmartPointer<vtkImageData>::New();
+  matrix->SetDimensions(nRows, nCols, 1);
+  matrix->AllocateScalars(type, 1);
+  matrix->GetPointData()->GetArray(0)->SetName(name.data());
+  return matrix;
+}
+
 int ttkSimilarityAlgorithm::RequestData(vtkInformation *,
                                         vtkInformationVector **inputVector,
                                         vtkInformationVector *outputVector) {
 
-  auto output = vtkImageData::GetData(outputVector);
-  auto input = vtkDataObject::GetData(inputVector[0]);
-
-  auto iterationInformation = vtkDoubleArray::SafeDownCast(input->GetFieldData()->GetArray("_ttk_IterationInfo"));
-  if(iterationInformation->GetValue(0)>0){
-    if(!this->ComputeSimilarityMatrix(output,this->PreviousInputs,input))
-        return 0;
-  } else {
-    vtkNew<vtkStringArray> ttk_ignore;
-    ttk_ignore->SetName("_ttk_IterationIgnore");
-    output->GetFieldData()->AddArray(ttk_ignore);
+  auto input = vtkMultiBlockDataSet::GetData(inputVector[0]);
+  auto output = vtkMultiBlockDataSet::GetData(outputVector);
+  const size_t n = input->GetNumberOfBlocks();
+  for(size_t t=1; t<n; t++){
+    output->SetBlock(
+      t-1,
+      ttkSimilarityAlgorithm::InitializeMatrix("Similarity",VTK_INT,2,2)
+    );
   }
-
-  this->PreviousInputs = vtkSmartPointer<vtkDataObject>::Take(input->NewInstance());
-  this->PreviousInputs->DeepCopy(input);
 
   return 1;
 }

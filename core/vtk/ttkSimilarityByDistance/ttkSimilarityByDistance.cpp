@@ -19,64 +19,71 @@ vtkStandardNewMacro(ttkSimilarityByDistance);
 ttkSimilarityByDistance::ttkSimilarityByDistance() {}
 ttkSimilarityByDistance::~ttkSimilarityByDistance() {}
 
-int ttkSimilarityByDistance::ComputeSimilarityMatrix(
-  vtkImageData *similarityMatrix,
-  vtkDataObject *inputDataObjects0,
-  vtkDataObject *inputDataObjects1) {
 
-  // unpack input
-  auto p0 = vtkPointSet::SafeDownCast(inputDataObjects0);
-  auto p1 = vtkPointSet::SafeDownCast(inputDataObjects1);
-  if(!p0 || !p1)
-    return !this->printErr("Input data objects need to be vtkPointSets.");
+int ttkSimilarityByDistance::RequestData(vtkInformation *,
+                                        vtkInformationVector **inputVector,
+                                        vtkInformationVector *outputVector) {
 
-  const int nPoints0 = p0->GetNumberOfPoints();
-  const int nPoints1 = p1->GetNumberOfPoints();
+  auto input = vtkMultiBlockDataSet::GetData(inputVector[0]);
+  auto output = vtkMultiBlockDataSet::GetData(outputVector);
+  const size_t n = input->GetNumberOfBlocks();
 
-  // get point coordinates
-  auto coords0 = p0->GetPoints()->GetData();
-  auto coords1 = p1->GetPoints()->GetData();
+  for(size_t t=1; t<n; t++){
+    auto p0 = vtkPointSet::SafeDownCast(input->GetBlock(t-1));
+    auto p1 = vtkPointSet::SafeDownCast(input->GetBlock(t));
+    if(!p0 || !p1)
+      return !this->printErr("Input data objects need to be vtkPointSets.");
 
-  if(coords0->GetDataType() != coords1->GetDataType())
-    return !this->printErr("Input vtkPointSet need to have same precision.");
+    const int nPoints0 = p0->GetNumberOfPoints();
+    const int nPoints1 = p1->GetNumberOfPoints();
 
-  // initialize similarity matrix i.e., distance matrix
-  similarityMatrix->SetDimensions(nPoints0, nPoints1, 1);
-  similarityMatrix->AllocateScalars(coords0->GetDataType(), 1);
-  auto matrixData = similarityMatrix->GetPointData()->GetArray(0);
-  matrixData->SetName("Distance");
+    // get point coordinates
+    auto coords0 = p0->GetPoints()->GetData();
+    auto coords1 = p1->GetPoints()->GetData();
 
-  int status = 0;
+    const int type = coords0->GetDataType();
+    if(type != coords1->GetDataType())
+      return !this->printErr("Input vtkPointSet need to have same precision.");
 
-  // compute distance matrix
-  ttkTypeMacroR(
-    matrixData->GetDataType(),
-    (status = this->computeDistanceMatrix<T0>(
-       ttkUtils::GetPointer<T0>(matrixData),
-       ttkUtils::GetPointer<const T0>(coords0),
-       ttkUtils::GetPointer<const T0>(coords1), nPoints0, nPoints1)));
-  if(!status)
-    return 0;
+    // initialize similarity matrix i.e., distance matrix
+    auto matrix = ttkSimilarityAlgorithm::InitializeMatrix(
+      "Distance", type, nPoints0, nPoints1
+    );
+    auto matrixData = matrix->GetPointData()->GetArray(0);
 
-  // normalize distance matrix
-  if(this->NormalizeMatrix) {
+    int status = 0;
+    // compute distance matrix
     ttkTypeMacroR(
-      matrixData->GetDataType(),
-      (status = this->normalizeDistanceMatrix<T0>(
-         ttkUtils::GetPointer<T0>(matrixData), nPoints0, nPoints1)));
+      type,
+      (status = this->computeDistanceMatrix<T0>(
+         ttkUtils::GetPointer<T0>(matrixData),
+         ttkUtils::GetPointer<const T0>(coords0),
+         ttkUtils::GetPointer<const T0>(coords1), nPoints0, nPoints1)));
     if(!status)
       return 0;
+
+    // normalize distance matrix
+    if(this->NormalizeMatrix) {
+      ttkTypeMacroR(
+        type,
+        (status = this->normalizeDistanceMatrix<T0>(
+           ttkUtils::GetPointer<T0>(matrixData), nPoints0, nPoints1)));
+      if(!status)
+        return 0;
+    }
+
+    auto indexIdMap0 = this->GetInputArrayToProcess(0, p0);
+    auto indexIdMap1 = this->GetInputArrayToProcess(0, p1);
+    if(!indexIdMap0 || !indexIdMap1)
+      return !this->printErr("Unable to retrieve feature IDs.");
+
+    status = ttkSimilarityAlgorithm::AddIndexIdMaps(
+      matrix, indexIdMap0, indexIdMap1);
+    if(!status)
+      return 0;
+
+    output->SetBlock(t-1,matrix);
   }
-
-  auto indexIdMap0 = this->GetInputArrayToProcess(0, p0);
-  auto indexIdMap1 = this->GetInputArrayToProcess(0, p1);
-  if(!indexIdMap0 || !indexIdMap1)
-    return !this->printErr("Unable to retrieve feature IDs.");
-
-  status = ttkSimilarityAlgorithm::AddIndexIdMaps(
-    similarityMatrix, indexIdMap0, indexIdMap1);
-  if(!status)
-    return 0;
 
   return 1;
 }

@@ -27,7 +27,8 @@ protected:
   ttkSimilarityByDistance();
   ~ttkSimilarityByDistance();
 
-  int ComputeSimilarityMatrix(vtkImageData *similarityMatrix,
-                              vtkDataObject *inputDataObjects0,
-                              vtkDataObject *inputDataObjects1) override;
+  int RequestData(vtkInformation *request,
+                  vtkInformationVector **inputVector,
+                  vtkInformationVector *outputVector) override;
+
 };

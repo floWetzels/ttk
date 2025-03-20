@@ -33,6 +33,8 @@ public:
   static ttkSimilarityAlgorithm *New();
   vtkTypeMacro(ttkSimilarityAlgorithm, ttkAlgorithm);
 
+  static vtkSmartPointer<vtkImageData> InitializeMatrix(const std::string& name, const int& type, const int& nRows, const int& nCols);
+
   static std::string GetIdArrayName(vtkFieldData *fieldData);
   static int GetIndexIdMaps(vtkDataArray *&indexIdMapP,
                             vtkDataArray *&indexIdMapC,
@@ -57,8 +59,6 @@ public:
 protected:
   ttkSimilarityAlgorithm();
   ~ttkSimilarityAlgorithm();
-
-  vtkSmartPointer<vtkDataObject> PreviousInputs;
 
   int FillInputPortInformation(int port, vtkInformation *info) override;
   int FillOutputPortInformation(int port, vtkInformation *info) override;

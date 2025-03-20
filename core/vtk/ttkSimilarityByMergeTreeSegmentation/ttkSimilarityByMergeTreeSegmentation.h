@@ -25,8 +25,4 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-
-  int ComputeSimilarityMatrix(vtkImageData *similarityMatrix,
-                              vtkDataObject *inputDataObjects0,
-                              vtkDataObject *inputDataObjects1) override;
 };
