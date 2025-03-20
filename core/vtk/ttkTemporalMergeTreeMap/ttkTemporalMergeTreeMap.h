@@ -81,40 +81,23 @@ private:
    *         initialize them here.
    */
   std::string OutputArrayName{"AveragedScalarField"};
-  bool useSlidingWindow = false;
   double scaling = 2.0;
   int backend = 0;
   int branchMetric = 0;
-  ttk::SimplexId windowSize = 5;
-  ttk::SimplexId layoutMode = 2; // 1=matchings, 2=barycenter, 3=alignment
-  int barycenterSize=20;
   void dfs_linearization(
       ttk::SimplexId curr_node,
       std::vector<double> &lin,
       std::vector<ttk::SimplexId> &seg,
-      std::vector<ttk::SimplexId> &bar,
       std::vector<double> &nodePositions,
       std::vector<std::vector<ttk::SimplexId>> &memiChildren,
       std::vector<std::vector<double>> &memiSegmentScalars,
       std::vector<ttk::SimplexId> &memiSizes,
       std::vector<ttk::SimplexId> &memiSegs,
-      std::vector<ttk::SimplexId> &branchNodeIDs,
       std::vector<double> &memiScalars,
       std::vector<double> &memiOrdering,
       std::vector<ttk::SimplexId> prevMatching,
       std::vector<double> prevOrdering,
       ttk::SimplexId timeStep);
-  void computeBaryBranchOrdering(
-    vtkMultiBlockDataSet* mtmb,
-    vtkMultiBlockDataSet* members,
-    std::vector<double> &ordering_branches);
-    void computeAlignmentOrdering(
-      vtkMultiBlockDataSet* inputnodes,
-      vtkMultiBlockDataSet* inputarcs,
-      vtkMultiBlockDataSet* members,
-      vtkMultiBlockDataSet* alignment,
-      std::vector<double> &ordering_branches,
-      std::vector<std::vector<ttk::SimplexId>> &matchings);
 
 public:
   /**
@@ -123,12 +106,6 @@ public:
    */
   vtkSetMacro(OutputArrayName, const std::string &);
   vtkGetMacro(OutputArrayName, std::string);
-
-  void SetWindowSize(int s) {
-    windowSize = s;
-    Modified();
-  }
-  vtkGetMacro(windowSize, int);
 
   void SetBackend(int b) {
     backend = b;
@@ -141,24 +118,6 @@ public:
     Modified();
   }
   vtkGetMacro(branchMetric, int);
-
-  void SetLayoutMode(int m) {
-    layoutMode = m;
-    Modified();
-  }
-  vtkGetMacro(layoutMode, int);
-
-  void SetUseSlidingWindow(bool b) {
-    useSlidingWindow = b;
-    Modified();
-  }
-  vtkGetMacro(useSlidingWindow, bool);
-
-  void SetMaxBarycenterSize(int s) {
-    barycenterSize = s;
-    Modified();
-  }
-  vtkGetMacro(barycenterSize, int);
 
   void SetScaling(double s) {
     scaling = s;
