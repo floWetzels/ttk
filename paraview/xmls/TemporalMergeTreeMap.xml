@@ -1,14 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- TODO 11: Add widgets to the ParaView UI that control the member variables of the vtk filter -->
-<!-- NOTE: Unfortunately the widget types and their properties are not well documented. -->
-<!--       The best thing you can do is to look at filters that have similar widgets you require and copy their source code. -->
-<!--       Good resources are: IcoSphere.xml, PersistenceDiagram.xml, and ArrayEditor.xml -->
 <ServerManagerConfiguration>
   <ProxyGroup name="filters">
     <SourceProxy name="ttkTemporalMergeTreeMap" class="ttkTemporalMergeTreeMap" label="TTK TemporalMergeTreeMap">
       <Documentation long_help="TemporalMergeTreeMap Long" short_help="TemporalMergeTreeMap Short">This filter is a well documented ttk example filter that computes for each vertex of a vtkDataSet the average scalar value of itself and its neighbors.</Documentation>
 
-      <!-- INPUT DATA OBJECTS -->
       <InputProperty  name="Member Nodes"
                       command="SetInputConnection"
                       port_index="0">
@@ -49,10 +44,6 @@
         <Documentation>A vtkDataSet that has at least one point data scalar array that can be used to compute averages.</Documentation>
       </InputProperty>
 
-      <!-- INPUT PARAMETER WIDGETS -->
-
-      <!-- This is the VTK way of selecting arrays for processing by calling the SetInputArrayToProcess method -->
-      <!-- (see ttkTemporalMergeTreeMap.cpp for details) -->
       <StringVectorProperty name="InputArray"
                 label="Input Array"
                 command="SetInputArrayToProcess"

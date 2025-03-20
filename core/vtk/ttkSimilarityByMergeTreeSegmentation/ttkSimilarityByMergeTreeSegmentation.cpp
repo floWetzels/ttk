@@ -19,7 +19,6 @@ vtkStandardNewMacro(ttkSimilarityByMergeTreeSegmentation);
 
 ttkSimilarityByMergeTreeSegmentation::ttkSimilarityByMergeTreeSegmentation() {
   this->SetNumberOfInputPorts(2);
-  this->SetNumberOfOutputPorts(1);
 }
 
 ttkSimilarityByMergeTreeSegmentation::~ttkSimilarityByMergeTreeSegmentation() {}

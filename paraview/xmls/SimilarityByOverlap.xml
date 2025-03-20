@@ -12,7 +12,6 @@
           <Group name="filters" />
         </ProxyGroupDomain>
         <DataTypeDomain name="input_type">
-          <DataType value="vtkDataSet" />
           <DataType value="vtkMultiBlockDataSet" />
         </DataTypeDomain>
         <InputArrayDomain name="input_arrays" attribute_type="point" />

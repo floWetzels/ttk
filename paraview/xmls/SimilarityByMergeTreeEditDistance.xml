@@ -6,17 +6,27 @@
         TODO
       </Documentation>
 
-      <InputProperty name="Points" port_index="0" command="SetInputConnection">
+      <InputProperty name="Nodes" port_index="0" command="SetInputConnection">
         <ProxyGroupDomain name="groups">
           <Group name="sources" />
           <Group name="filters" />
         </ProxyGroupDomain>
         <DataTypeDomain name="input_type">
-          <DataType value="vtkPointSet" />
+          <DataType value="vtkMultiBlockDataSet" />
+          <InputArrayDomain name="input_arrays" attribute_type="point" />
+        </DataTypeDomain>
+        <Documentation>TODO</Documentation>
+      </InputProperty>
+
+      <InputProperty name="Arcs" port_index="1" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
           <DataType value="vtkMultiBlockDataSet" />
         </DataTypeDomain>
-        <InputArrayDomain name="input_arrays" attribute_type="point" />
-        <Documentation>Points.</Documentation>
+        <Documentation>TODO</Documentation>
       </InputProperty>
 
       <OutputPort index="0" id="port0" name="Matrix" />
@@ -24,20 +34,11 @@
       <StringVectorProperty name="FeatureIds" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="ttkVertexScalarField">
         <ArrayListDomain name="array_list" input_domain_name="input_arrays">
           <RequiredProperties>
-            <Property function="Input" name="Points" />
+            <Property function="Input" name="Nodes" />
           </RequiredProperties>
         </ArrayListDomain>
         <Documentation>Feature Ids.</Documentation>
       </StringVectorProperty>
-
-      <IntVectorProperty name="Normalize" command="SetNormalizeMatrix" number_of_elements="1" default_values="0">
-        <BooleanDomain name="bool" />
-        <Documentation>
-          OFF: Ouput matrix records the Euclidean distance between input points.
-
-          ON: Eucleadian distances are normalized based on the maximum value of the matrix. Normalized values are also inverted to conform to the defintion of correspondence metrices, where matrix values must be positive proportional to the probability of a feature match.
-        </Documentation>
-      </IntVectorProperty>
 
       ${DEBUG_WIDGETS}
 

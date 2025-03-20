@@ -12,7 +12,7 @@
           <Group name="filters" />
         </ProxyGroupDomain>
         <DataTypeDomain name="input_type">
-          <DataType value="vtkDataSet" />
+          <DataType value="vtkMultiBlockDataSet" />
         </DataTypeDomain>
         <Documentation>TODO</Documentation>
       </InputProperty>
@@ -23,7 +23,7 @@
           <Group name="filters" />
         </ProxyGroupDomain>
         <DataTypeDomain name="input_type">
-          <DataType value="vtkDataSet" />
+          <DataType value="vtkMultiBlockDataSet" />
         </DataTypeDomain>
         <Documentation>TODO</Documentation>
       </InputProperty>

@@ -198,10 +198,6 @@ int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
                                           vtkInformationVector **inputVector,
                                           vtkInformationVector *outputVector) {
 
-
-
-  //------------------------------------------------------------
-  // internal vtk filter approach
   ttk::Timer completeTimer;
   auto correspondences = vtkMultiBlockDataSet::GetData(inputVector[0]);
   if(!correspondences)

@@ -65,11 +65,4 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-
-  virtual int
-    ComputeSimilarityMatrix(vtkImageData *vtkNotUsed(similarityMatrix),
-                            vtkDataObject *vtkNotUsed(inputDataObjects0),
-                            vtkDataObject *vtkNotUsed(inputDataObjects1)) {
-    return 0;
-  };
 };
