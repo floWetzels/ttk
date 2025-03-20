@@ -636,7 +636,8 @@ namespace ttk {
                                bool cleanTreeT,
                                double persistenceThreshold,
                                std::vector<int> &nodeCorr,
-                               bool deleteInconsistentNodes = true) {
+                               bool deleteInconsistentNodes = true,
+                               bool removeMergedSaddles = false) {
       Timer t_proc;
 
       ftm::FTMTree_MT *tree = &(mTree.tree);
@@ -650,8 +651,18 @@ namespace ttk {
       std::vector<std::vector<ftm::idNode>> treeNodeMerged(
         tree->getNumberOfNodes());
       if(not isPersistenceDiagram_ or convertToDiagram_) {
-        if(epsilonTree != 0)
+        if(epsilonTree != 0) {
           mergeSaddle<dataType>(tree, epsilonTree, treeNodeMerged);
+          if(removeMergedSaddles) {
+            for(unsigned int j = 0; j < treeNodeMerged.size(); j++) {
+              for(auto k : treeNodeMerged[j]) {
+                auto nodeToDelete = tree->getNode(k)->getOrigin();
+                tree->getNode(k)->setOrigin(j);
+                tree->getNode(nodeToDelete)->setOrigin(-1);
+              }
+            }
+          }
+        }
       }
 
       // - Compute branch decomposition
@@ -701,11 +712,12 @@ namespace ttk {
                                bool useMinMaxPairT,
                                bool cleanTreeT,
                                std::vector<int> &nodeCorr,
-                               bool deleteInconsistentNodes = true) {
+                               bool deleteInconsistentNodes = true,
+                               bool removeMergedSaddles = false) {
       preprocessingPipeline<dataType>(
         mTree, epsilonTree, epsilon2Tree, epsilon3Tree, branchDecompositionT,
         useMinMaxPairT, cleanTreeT, persistenceThreshold_, nodeCorr,
-        deleteInconsistentNodes);
+        deleteInconsistentNodes, removeMergedSaddles);
     }
 
     void reverseNodeCorr(ftm::FTMTree_MT *tree, std::vector<int> &nodeCorr) {
@@ -1000,7 +1012,8 @@ namespace ttk {
     }
 
     template <class dataType>
-    void postprocessingPipeline(ftm::FTMTree_MT *tree) {
+    void postprocessingPipeline(ftm::FTMTree_MT *tree,
+                                bool branchDecomposition) {
       // if(not branchDecomposition_ or not useMinMaxPair)
       // fixMergedRootOrigin<dataType>(tree);
       if(tree->isFullMerge()) {
@@ -1011,11 +1024,16 @@ namespace ttk {
           printErr(
             "[postprocessingPipeline] mergedRootOrigin inconsistent id.");
       }
-      if(branchDecomposition_) {
+      if(branchDecomposition) {
         if(not isPersistenceDiagram_ and tree->getRealNumberOfNodes() != 0)
           branchDecompositionToTree<dataType>(tree);
       } else
         putBackMergedNodes<dataType>(tree);
+    }
+
+    template <class dataType>
+    void postprocessingPipeline(ftm::FTMTree_MT *tree) {
+      postprocessingPipeline<dataType>(tree, branchDecomposition_);
     }
 
     // ------------------------------------------------------------------------
@@ -1293,7 +1311,7 @@ namespace ttk {
       std::stringstream ss;
       ss << trees.size() << " trees average [node: " << avgNodes << " / "
          << avgNodesT << ", depth: " << avgDepth << "]";
-      printMsg(ss.str());
+      printMsg(ss.str(), debug::Priority::PERFORMANCE);
     }
 
     template <class dataType>

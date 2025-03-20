@@ -39,6 +39,7 @@ class TTKBLOCKAGGREGATOR_EXPORT ttkBlockAggregator : public ttkAlgorithm {
 private:
   bool Streaming{true};
   bool Flatten{false};
+  bool MergeMultiBlock{true};
   vtkSmartPointer<vtkMultiBlockDataSet> AggregatedMultiBlockDataSet;
 
 public:
@@ -47,6 +48,9 @@ public:
 
   vtkSetMacro(Flatten, bool);
   vtkGetMacro(Flatten, bool);
+
+  vtkSetMacro(MergeMultiBlock, bool);
+  vtkGetMacro(MergeMultiBlock, bool);
 
   static ttkBlockAggregator *New();
   vtkTypeMacro(ttkBlockAggregator, ttkAlgorithm);
