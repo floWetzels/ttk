@@ -1,13 +1,13 @@
 /// \ingroup vtk
-/// \class ttkMergeTreeDistanceMatrix
+/// \class ttkMergeTreeFeatureTracking
 /// \author Mathieu Pont <mathieu.pont@lip6.fr>
-/// \author Florian Wetzels (wetzels@cs.uni-kl.de)
 /// \date 2021.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::MergeTreeDistanceMatrix module.
+/// \brief TTK VTK-filter that wraps the ttk::MergeTreeFeatureTracking
+/// module.
 ///
-/// This VTK filter uses the ttk::MergeTreeDistanceMatrix module to compute the
-/// distance matrix of a group of merge trees.
+/// This VTK filter uses the ttk::MergeTreeFeatureTracking module to compute
+/// the distance matrix of a group of merge trees.
 ///
 /// \param Input vtkMultiBlockDataset
 /// \param Output vtkTable
@@ -18,28 +18,7 @@
 /// See the related ParaView example state files for usage examples within a
 /// VTK pipeline.
 ///
-/// \b Related \b publication \n
-/// "Wasserstein Distances, Geodesics and Barycenters of Merge Trees" \n
-/// Mathieu Pont, Jules Vidal, Julie Delon, Julien Tierny.\n
-/// Proc. of IEEE VIS 2021.\n
-/// IEEE Transactions on Visualization and Computer Graphics, 2021
-///
-/// \b Related \b publication \n
-/// "Edit Distance between Merge Trees" \n
-/// R. Sridharamurthy, T. B. Masood, A. Kamakshidasan and V. Natarajan. \n
-/// IEEE Transactions on Visualization and Computer Graphics, 2020.
-///
-/// \b Related \b publication \n
-/// "Branch Decomposition-Independent Edit Distances for Merge Trees." \n
-/// Florian Wetzels, Heike Leitte, and Christoph Garth. \n
-/// Computer Graphics Forum, 2022.
-///
-/// \b Related \b publication \n
-/// "A Deformation-based Edit Distance for Merge Trees" \n
-/// Florian Wetzels, Christoph Garth. \n
-/// TopoInVis 2022.
-///
-/// \sa ttk::MergeTreeDistanceMatrix
+/// \sa ttk::MergeTreeFeatureTracking
 /// \sa ttkAlgorithm
 ///
 /// \b Online \b examples: \n
@@ -56,7 +35,7 @@
 #pragma once
 
 // VTK Module
-#include <ttkMergeTreeDistanceMatrixModule.h>
+#include <ttkMergeTreeFeatureTrackingModule.h>
 
 // VTK Includes
 #include <ttkAlgorithm.h>
@@ -65,12 +44,13 @@
 #include <vtkUnstructuredGrid.h>
 
 // TTK Base Includes
-#include <MergeTreeDistanceMatrix.h>
+#include <MergeTreeFeatureTracking.h>
 
-class TTKMERGETREEDISTANCEMATRIX_EXPORT ttkMergeTreeDistanceMatrix
+class TTKMERGETREEFEATURETRACKING_EXPORT ttkMergeTreeFeatureTracking
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
-    protected ttk::MergeTreeDistanceMatrix // and we inherit from the base class
+    protected ttk::MergeTreeFeatureTracking // and we inherit from the base
+                                            // class
 {
 private:
   /**
@@ -85,15 +65,61 @@ private:
 
   bool UseFieldDataParameters = false;
 
+  // Output options
+  bool OutputTrees = true;
+  bool OutputSegmentation = false;
+  bool PlanarLayout = false;
+  bool BranchDecompositionPlanarLayout = false;
+  bool PathPlanarLayout = false;
+  double BranchSpacing = 1.;
+  double NonImportantBranchSpacing = 1.;
+  bool RescaleTreesIndividually = false;
+  double DimensionSpacing = 1.;
+  int DimensionToShift = 0;
+  double XShift = 1.0;
+  double YShift = 0.0;
+  double ZShift = 0.0;
+  double ImportantPairs = 50.;
+  int MaximumImportantPairs = 0;
+  int MinimumImportantPairs = 0;
+  double ImportantPairsSpacing = 1.;
+  double NonImportantPairsSpacing = 1.;
+  double NonImportantPairsProximity = 0.05;
+  std::string ExcludeImportantPairsLower = "";
+  std::string ExcludeImportantPairsHigher = "";
+
+  //
+  vtkAbstractArray *oldScalars = 0;
+  std::vector<std::vector<int>> treesNodeCorrMesh;
+  std::vector<ttk::ftm::MergeTree<float>> intermediateTrees, intermediateTrees2;
+  std::vector<vtkUnstructuredGrid *> treesNodes, treesArcs;
+  std::vector<vtkDataSet *> treesSegmentation;
+  std::vector<
+    std::vector<std::tuple<ttk::ftm::idNode, ttk::ftm::idNode, double>>>
+    outputMatchings;
+  std::vector<float> distances;
+
+  void doCompute() {
+    oldScalars = 0;
+  }
+
 public:
   /**
    * Automatically generate getters and setters of filter
    * parameters via vtkMacros.
    */
   // Input Options
+#define ttkMergeTreeFeatureTrackingSetMacro(name, type) \
+  void Set##name(type v) {                              \
+    name = v;                                           \
+    Modified();                                         \
+    doCompute();                                        \
+  }
+
   void SetEpsilon1UseFarthestSaddle(bool epsilon1UseFarthestSaddle) {
     epsilon1UseFarthestSaddle_ = epsilon1UseFarthestSaddle;
     Modified();
+    doCompute();
   }
   bool GetEpsilon1UseFarthestSaddle() {
     return epsilon1UseFarthestSaddle_;
@@ -102,6 +128,7 @@ public:
   void SetEpsilonTree1(double epsilonTree1) {
     epsilonTree1_ = epsilonTree1;
     Modified();
+    doCompute();
   }
   double SetEpsilonTree1() {
     return epsilonTree1_;
@@ -110,6 +137,7 @@ public:
   void SetEpsilon2Tree1(double epsilon2Tree1) {
     epsilon2Tree1_ = epsilon2Tree1;
     Modified();
+    doCompute();
   }
   double SetEpsilon2Tree1() {
     return epsilon2Tree1_;
@@ -118,6 +146,7 @@ public:
   void SetEpsilon3Tree1(double epsilon3Tree1) {
     epsilon3Tree1_ = epsilon3Tree1;
     Modified();
+    doCompute();
   }
   double SetEpsilon3Tree1() {
     return epsilon3Tree1_;
@@ -126,6 +155,7 @@ public:
   void SetPersistenceThreshold(double persistenceThreshold) {
     persistenceThreshold_ = persistenceThreshold;
     Modified();
+    doCompute();
   }
   double SetPersistenceThreshold() {
     return persistenceThreshold_;
@@ -134,6 +164,7 @@ public:
   void SetDeleteMultiPersPairs(bool doDelete) {
     deleteMultiPersPairs_ = doDelete;
     Modified();
+    doCompute();
   }
   bool SetDeleteMultiPersPairs() {
     return deleteMultiPersPairs_;
@@ -142,11 +173,13 @@ public:
   void SetBranchMetric(int m) {
     branchMetric_ = m;
     Modified();
+    doCompute();
   }
 
   void SetPathMetric(int m) {
     pathMetric_ = m;
     Modified();
+    doCompute();
   }
 
   // Execution Options
@@ -163,12 +196,14 @@ public:
     }
     Backend = newBackend;
     Modified();
+    doCompute();
   }
   vtkGetMacro(Backend, int);
 
   void SetAssignmentSolver(int assignmentSolver) {
     assignmentSolverID_ = assignmentSolver;
     Modified();
+    doCompute();
   }
   int GetAssignmentSolver() {
     return assignmentSolverID_;
@@ -177,6 +212,7 @@ public:
   void SetBranchDecomposition(bool branchDecomposition) {
     branchDecomposition_ = branchDecomposition;
     Modified();
+    doCompute();
   }
   int GetBranchDecomposition() {
     return branchDecomposition_;
@@ -185,6 +221,7 @@ public:
   void SetNormalizedWasserstein(bool normalizedWasserstein) {
     normalizedWasserstein_ = normalizedWasserstein;
     Modified();
+    doCompute();
   }
   int GetNormalizedWasserstein() {
     return normalizedWasserstein_;
@@ -193,6 +230,7 @@ public:
   void SetKeepSubtree(bool keepSubtree) {
     keepSubtree_ = keepSubtree;
     Modified();
+    doCompute();
   }
   int GetKeepSubtree() {
     return keepSubtree_;
@@ -201,6 +239,7 @@ public:
   void SetDistanceSquaredRoot(bool distanceSquaredRoot) {
     distanceSquaredRoot_ = distanceSquaredRoot;
     Modified();
+    doCompute();
   }
   int GetDistanceSquaredRoot() {
     return distanceSquaredRoot_;
@@ -209,23 +248,87 @@ public:
   vtkSetMacro(UseFieldDataParameters, bool);
   vtkGetMacro(UseFieldDataParameters, bool);
 
-  vtkSetMacro(mixtureCoefficient_, double);
+  ttkMergeTreeFeatureTrackingSetMacro(mixtureCoefficient_, double);
   vtkGetMacro(mixtureCoefficient_, double);
+
+  // Output Options
+  vtkSetMacro(OutputTrees, bool);
+  vtkGetMacro(OutputTrees, bool);
+
+  vtkSetMacro(OutputSegmentation, bool);
+  vtkGetMacro(OutputSegmentation, bool);
+
+  vtkSetMacro(PlanarLayout, bool);
+  vtkGetMacro(PlanarLayout, bool);
+
+  vtkSetMacro(BranchDecompositionPlanarLayout, bool);
+  vtkGetMacro(BranchDecompositionPlanarLayout, bool);
+
+  vtkSetMacro(PathPlanarLayout, bool);
+  vtkGetMacro(PathPlanarLayout, bool);
+
+  vtkSetMacro(BranchSpacing, double);
+  vtkGetMacro(BranchSpacing, double);
+
+  vtkSetMacro(NonImportantBranchSpacing, double);
+  vtkGetMacro(NonImportantBranchSpacing, double);
+
+  vtkSetMacro(RescaleTreesIndividually, bool);
+  vtkGetMacro(RescaleTreesIndividually, bool);
+
+  vtkSetMacro(DimensionSpacing, double);
+  vtkGetMacro(DimensionSpacing, double);
+
+  vtkSetMacro(DimensionToShift, int);
+  vtkGetMacro(DimensionToShift, int);
+
+  vtkSetMacro(XShift, double);
+  vtkGetMacro(XShift, double);
+
+  vtkSetMacro(YShift, double);
+  vtkGetMacro(YShift, double);
+
+  vtkSetMacro(ZShift, double);
+  vtkGetMacro(ZShift, double);
+
+  vtkSetMacro(ImportantPairs, double);
+  vtkGetMacro(ImportantPairs, double);
+
+  vtkSetMacro(MaximumImportantPairs, int);
+  vtkGetMacro(MaximumImportantPairs, int);
+
+  vtkSetMacro(MinimumImportantPairs, int);
+  vtkGetMacro(MinimumImportantPairs, int);
+
+  vtkSetMacro(ImportantPairsSpacing, double);
+  vtkGetMacro(ImportantPairsSpacing, double);
+
+  vtkSetMacro(NonImportantPairsSpacing, double);
+  vtkGetMacro(NonImportantPairsSpacing, double);
+
+  vtkSetMacro(NonImportantPairsProximity, double);
+  vtkGetMacro(NonImportantPairsProximity, double);
+
+  vtkSetMacro(ExcludeImportantPairsLower, const std::string &);
+  vtkGetMacro(ExcludeImportantPairsLower, std::string);
+
+  vtkSetMacro(ExcludeImportantPairsHigher, const std::string &);
+  vtkGetMacro(ExcludeImportantPairsHigher, std::string);
 
   /**
    * This static method and the macro below are VTK conventions on how to
    * instantiate VTK objects. You don't have to modify this.
    */
-  static ttkMergeTreeDistanceMatrix *New();
-  vtkTypeMacro(ttkMergeTreeDistanceMatrix, ttkAlgorithm);
+  static ttkMergeTreeFeatureTracking *New();
+  vtkTypeMacro(ttkMergeTreeFeatureTracking, ttkAlgorithm);
 
 protected:
   /**
    * Implement the filter constructor and destructor
    *         (see cpp file)
    */
-  ttkMergeTreeDistanceMatrix();
-  ~ttkMergeTreeDistanceMatrix() override;
+  ttkMergeTreeFeatureTracking();
+  ~ttkMergeTreeFeatureTracking() override;
 
   /**
    * Specify the input data type of each input port
@@ -247,8 +350,10 @@ protected:
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
 
-  template <class dataType>
-  int run(vtkInformationVector *outputVector,
-          std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> &inputTrees,
-          std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> &inputTrees2);
+  int runCompute();
+
+  int runOutput(
+    vtkInformationVector *outputVector,
+    std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> &inputTrees,
+    std::vector<vtkSmartPointer<vtkMultiBlockDataSet>> &inputTrees2);
 };

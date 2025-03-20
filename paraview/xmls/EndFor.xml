@@ -37,6 +37,11 @@
               <Documentation>If enabled ttkEndFor will append the output of all iterations in a vtkMultiBlockDataSet. Otherwise the filter will only provide the data of the last iteration.</Documentation>
             </IntVectorProperty>
 
+            <IntVectorProperty name="Merge Output" command="SetMergeMultiBlock" number_of_elements="1" default_values="1">
+              <BooleanDomain name="bool" />
+              <Documentation>If enabled ttkEndFor will append members of an input vtkMultiBlockDataSet. Otherwise the filter will the input vtkMultiBlockDataSet itself.</Documentation>
+            </IntVectorProperty>
+
             ${DEBUG_WIDGETS}
 
             <Hints>

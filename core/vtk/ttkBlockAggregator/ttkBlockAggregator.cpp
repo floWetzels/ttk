@@ -82,7 +82,7 @@ int copyObjects(vtkDataObject *source, vtkDataObject *copy) {
 
 int ttkBlockAggregator::AggregateBlock(vtkMultiBlockDataSet* collection, vtkDataObject *item){
   auto itemAsMB = vtkMultiBlockDataSet::SafeDownCast(item);
-  if(itemAsMB){
+  if(itemAsMB && this->MergeMultiBlock){
     for(size_t b=0,n=itemAsMB->GetNumberOfBlocks(); b<n; b++)
       this->AggregateBlock(collection, itemAsMB->GetBlock(b));
   } else {

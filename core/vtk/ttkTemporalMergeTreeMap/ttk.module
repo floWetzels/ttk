@@ -1,0 +1,17 @@
+NAME
+  ttkTemporalMergeTreeMap
+SOURCES
+  ttkTemporalMergeTreeMap.cpp
+HEADERS
+  ttkTemporalMergeTreeMap.h
+DEPENDS
+  temporalMergeTreeMap
+  mergeTreeClustering
+  ttkMergeTreeClustering
+  ttkMergeTreeFeatureTracking
+  mergeTreeFeatureTracking
+  ftmTree
+  planarGraphLayout
+  ttkPlanarGraphLayout
+  ttkMergeTree
+  ttkAlgorithm
