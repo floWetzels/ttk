@@ -54,6 +54,10 @@ int ttkBranchDecomposition::RequestData(vtkInformation *,
 
   auto vtkTrackingGraph = vtkPointSet::GetData(outputVector);
   vtkTrackingGraph->ShallowCopy(input);
+  const int nNodes = vtkTrackingGraph->GetNumberOfPoints();
+
+  if(nNodes<1)
+    return 1;
 
   if(this->GetInputArrayAssociation(0, inputVector) != 0)
     return !this->printErr("Time needs to be a point data array.");
@@ -73,7 +77,6 @@ int ttkBranchDecomposition::RequestData(vtkInformation *,
      || attributeArray->GetNumberOfComponents() != 1)
     return !this->printErr("Input arrays need to be scalar arrays.");
 
-  const int nNodes = vtkTrackingGraph->GetNumberOfPoints();
   auto connectivityList
     = vtkTrackingGraph->IsA("vtkPolyData")
         ? static_cast<vtkPolyData *>(vtkTrackingGraph)
