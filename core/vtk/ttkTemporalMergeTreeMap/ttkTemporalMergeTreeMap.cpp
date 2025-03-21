@@ -16,7 +16,6 @@
 #include <Debug.h>
 #include <vtkCellData.h>
 
-
 #include <FTMTreeUtils.h>
 #include <MergeTreeBarycenter.h>
 #include <ttkMacros.h>

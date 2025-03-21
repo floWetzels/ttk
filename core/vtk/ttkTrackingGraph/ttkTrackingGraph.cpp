@@ -65,21 +65,14 @@ int countEdges(int &nEdges,
     ttkSimilarityAlgorithm::BuildIdIndexMap(idIndexMap0, indexIdMap0);
     ttkSimilarityAlgorithm::BuildIdIndexMap(idIndexMap1, indexIdMap1);
 
-    for (const auto& pair : idIndexMap0) {
-        std::cout << "Key: " << pair.first << ", Value: " << pair.second << std::endl;
-    }
-
     for(int i = 0; i < nIds0; i++) {
       for(int j = 0; j < nIds1; j++) {
         auto iId = static_cast<ttk::SimplexId>(ids0[i]);
         auto jId = static_cast<ttk::SimplexId>(ids1[j]);
         const auto &iIt = idIndexMap0.find(iId);
         const auto &jIt = idIndexMap1.find(jId);
-        if(iIt == idIndexMap0.end() || jIt == idIndexMap1.end()){
-          std::cout<<iId<<"("<<(iIt == idIndexMap0.end())<<") "<<jId<<"("<<(iIt == idIndexMap1.end())<<") "<<std::endl;
-          std::cout<<"XXXXXXXXXXXXXXXXX"<<std::endl;
+        if(iIt == idIndexMap0.end() || jIt == idIndexMap1.end())
           continue;
-        }
 
         const auto &iIdx = iIt->second;
         const auto &jIdx = jIt->second;
