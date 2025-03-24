@@ -1,0 +1,10 @@
+NAME
+  ttkSimilarityByWassersteinDistance
+SOURCES
+  ttkSimilarityByWassersteinDistance.cpp
+HEADERS
+  ttkSimilarityByWassersteinDistance.h
+DEPENDS
+  trackingFromPersistenceDiagrams
+  ttkSimilarityAlgorithm
+  ttkBottleneckDistance

@@ -1,0 +1,141 @@
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy
+    name="ttkSimilarityByWassersteinDistance"
+    class="ttkSimilarityByWassersteinDistance"
+    label="TTK SimilarityByWassersteinDistance">
+      <Documentation
+      long_help="TTK plugin that takes an input time-varying data set (represented
+by a list of scalar fields) and which computes a tracking mesh."
+      short_help="TTK plugin that takes an input time-varying data set (represented
+        by a list of scalar fields) and which computes a tracking mesh.">
+        TODO
+      </Documentation>
+
+      <InputProperty
+      name="Input"
+      command="AddInputConnection"
+      clean_command="RemoveAllInputs"
+      multiple_input="1">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources"/>
+          <Group name="filters"/>
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkUnstructuredGrid"/>
+        </DataTypeDomain>
+        <InputArrayDomain name="input_scalars" number_of_components="1">
+          <Property name="Input" function="FieldDataSelection" />
+        </InputArrayDomain>
+        <Documentation>
+          Data-set to process.
+        </Documentation>
+      </InputProperty>
+
+      <DoubleVectorProperty
+      name="Tolerance"
+      command="SetTolerance"
+      label="Persistence threshold"
+      number_of_elements="1"
+      default_values="01">
+        <Documentation>
+          Discard pairs below this threshold (percentage of the function span).
+        </Documentation>
+        <DoubleRangeDomain name="range" min="0" max="100" />
+      </DoubleVectorProperty>
+
+      <IntVectorProperty
+      name="Assignment method"
+      label="Assignment method"
+      command="SetPVAlgorithm"
+      number_of_elements="1"
+      default_values="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="ttk: pMunkres (Wasserstein), Gabow-Tarjan (Bottleneck)"/>
+        </EnumerationDomain>
+        <Documentation>
+          Method for computing matchings.
+        </Documentation>
+      </IntVectorProperty>
+
+      <!-- Bottleneck options -->
+      <StringVectorProperty
+        name="n"
+        label="p parameter"
+        command="SetWassersteinMetric"
+        number_of_elements="1"
+        default_values="2">
+        <Documentation>
+          Value of the parameter p for the Wp (p-th Wasserstein) distance
+          computation (type "inf" for the Bottleneck distance).
+        </Documentation>
+      </StringVectorProperty>
+
+      <DoubleVectorProperty
+        name="spe"
+        label="Extremum weight"
+        command="SetPE"
+        number_of_elements="1"
+        default_values="1"
+        panel_visibility="advanced">
+        <DoubleRangeDomain name="spe" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for extrema.</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+        name="sps"
+        label="Saddle weight"
+        command="SetPS"
+        number_of_elements="1"
+        default_values="1"
+        panel_visibility="advanced">
+        <DoubleRangeDomain name="sps" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for saddles.</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+        name="spx"
+        label="X weight"
+        command="SetPX"
+        number_of_elements="1"
+        default_values="0"
+        panel_visibility="advanced">
+        <DoubleRangeDomain name="spx" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for the X component of
+the extremum</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+        name="spy"
+        label="Y weight"
+        command="SetPY"
+        number_of_elements="1"
+        default_values="0"
+        panel_visibility="advanced">
+        <DoubleRangeDomain name="spy" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for the Y component of
+the extremum</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+        name="spz"
+        label="Z weight"
+        command="SetPZ"
+        number_of_elements="1"
+        default_values="0"
+        panel_visibility="advanced">
+        <DoubleRangeDomain name="spz" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for the Z component of
+the extremum</Documentation>
+      </DoubleVectorProperty>
+
+
+      <!-- Debug -->
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Time-varying Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>
