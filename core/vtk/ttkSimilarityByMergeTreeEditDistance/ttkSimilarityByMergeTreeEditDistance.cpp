@@ -139,13 +139,25 @@ int ttkSimilarityByMergeTreeEditDistance::RequestData(vtkInformation *,
     // outputNodes->SetBlock(t-1,outputNodesi);
     // outputArcs->SetBlock(t-1,outputArcsi);
 
-    auto indexIdMap0 = this->GetInputArrayToProcess(0, nodes0);
-    auto indexIdMap1 = this->GetInputArrayToProcess(0, nodes1);
-    if(!indexIdMap0 || !indexIdMap1)
+    auto fidArr0 = this->GetInputArrayToProcess(0, nodes0);
+    auto fidArr1 = this->GetInputArrayToProcess(0, nodes1);
+    if(!fidArr0 || !fidArr1)
       return !this->printErr("Unable to retrieve feature IDs.");
+    std::unordered_map<ttk::SimplexId, ttk::SimplexId> indexIdMap0;
+    std::unordered_map<ttk::SimplexId, ttk::SimplexId> indexIdMap1;
+    for(ttk::SimplexId i=0; i<memberNodes0->GetNumberOfPoints(); i++){
+      ttk::SimplexId nid = memberNodes0->GetPointData()->GetArray("NodeId")->GetComponent(i,0);
+      ttk::SimplexId fid = fidArr0->GetComponent(i,0);
+      indexIdMap0[fid] = nid;
+    }
+    for(ttk::SimplexId i=0; i<memberNodes1->GetNumberOfPoints(); i++){
+      ttk::SimplexId nid = memberNodes1->GetPointData()->GetArray("NodeId")->GetComponent(i,0);
+      ttk::SimplexId fid = fidArr1->GetComponent(i,0);
+      indexIdMap1[fid] = nid;
+    }
 
     status = ttkSimilarityAlgorithm::AddIndexIdMaps(
-      matrix, indexIdMap0, indexIdMap1);
+      matrix, indexIdMap0, indexIdMap1, "FeatureId");
     if(!status)
       return 0;
 
