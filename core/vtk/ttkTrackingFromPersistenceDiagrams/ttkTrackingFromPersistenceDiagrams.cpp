@@ -1,6 +1,7 @@
 #include <ttkBottleneckDistanceUtils.h>
 #include <ttkMacros.h>
 #include <ttkTrackingFromPersistenceDiagrams.h>
+#include <vtkMultiBlockDataSet.h>
 
 vtkStandardNewMacro(ttkTrackingFromPersistenceDiagrams);
 
@@ -284,13 +285,22 @@ int ttkTrackingFromPersistenceDiagrams::RequestData(
   vtkUnstructuredGrid *mesh = vtkUnstructuredGrid::GetData(outputVector, 0);
 
   // Number of input files
-  int const numInputs = inputVector[0]->GetNumberOfInformationObjects();
+  auto input = vtkDataObject::GetData(inputVector[0]);
+  auto inputAsMB = vtkMultiBlockDataSet::SafeDownCast(input);
+
+  int const numInputs = inputAsMB ? inputAsMB->GetNumberOfBlocks() : inputVector[0]->GetNumberOfInformationObjects();
   this->printMsg("Number of inputs: " + std::to_string(numInputs));
 
   // Get input data
   std::vector<vtkUnstructuredGrid *> inputVTUs(numInputs);
-  for(int i = 0; i < numInputs; i++) {
-    inputVTUs[i] = vtkUnstructuredGrid::GetData(inputVector[0], i);
+  if(inputAsMB){
+    for(int i = 0; i < numInputs; i++) {
+      inputVTUs[i] = vtkUnstructuredGrid::SafeDownCast(inputAsMB->GetBlock(i));
+    }
+  } else {
+    for(int i = 0; i < numInputs; i++) {
+      inputVTUs[i] = vtkUnstructuredGrid::GetData(inputVector[0], i);
+    }
   }
 
   std::vector<ttk::DiagramType> inputPersistenceDiagrams(numInputs);
