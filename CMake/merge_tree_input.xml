@@ -9,7 +9,9 @@ default_values="0">
     <Entry value="1" text="Edit Distance (IEEE TVCG 2019)"/>
     <Entry value="3" text="Branch Mapping Distance (EuroVis 2022)"/>
     <Entry value="4" text="Path Mapping Distance (TopoInVis 2022)"/>
-    <Entry value="5" text="Naive Edit Distance"/>
+    <Entry value="5" text="Naive Degree-1 Edit Distance"/>
+    <Entry value="6" text="Naive Degree-2 Edit Distance"/>
+    <Entry value="7" text="Naive Constrained Edit Distance"/>
     <Entry value="2" text="Custom"/>
 </EnumerationDomain>
   <Documentation>

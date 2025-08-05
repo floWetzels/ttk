@@ -5,7 +5,8 @@
 #include <MergeTreeUtils.h>
 #include <MergeTreeVisualization.h>
 #include <PathMappingDistance.h>
-#include <NaiveMergeTreeEditDistance.h>
+#include <NaiveOneDegMergeTreeEditDistance.h>
+#include <NaiveConstrMergeTreeEditDistance.h>
 #include <ttkMergeTreeClustering.h>
 #include <ttkMergeTreeUtils.h>
 #include <ttkMergeTreeVisualization.h>
@@ -129,6 +130,10 @@ int ttkMergeTreeClustering::RequestData(vtkInformation *ttkNotUsed(request),
     baseModule = 2;
   }  else if(Backend == 5) {
     baseModule = 3;
+  }  else if(Backend == 6) {
+    baseModule = 4;
+  }  else if(Backend == 7) {
+    baseModule = 5;
   } else {
     baseModule = 0;
   }
@@ -370,8 +375,11 @@ int ttkMergeTreeClustering::runCompute(
       // i<nodeCorr2.size(); i++) nodeCorr2[i] = i; trees1NodeCorrMesh =
       // std::vector<std::vector<ttk::SimplexId>>{nodeCorr1,nodeCorr2};
       finalDistances = std::vector<double>{distance};
-    } else {
-      NaiveMergeTreeEditDistance naiveEditDist;
+    } else if(baseModule >= 3 && baseModule <= 5) {
+      NaiveConstrMergeTreeEditDistance naiveEditDist;
+      if(baseModule==3) naiveEditDist.setconstraintType(0);
+      if(baseModule==4) naiveEditDist.setconstraintType(1);
+      if(baseModule==5) naiveEditDist.setconstraintType(2);
       naiveEditDist.setBaseMetric(pathMetric);
       naiveEditDist.setlookahead(PathMappingLookahead);
       naiveEditDist.setAssignmentSolver(AssignmentSolver);

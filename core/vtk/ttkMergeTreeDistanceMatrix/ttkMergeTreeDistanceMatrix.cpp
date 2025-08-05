@@ -160,6 +160,16 @@ int ttkMergeTreeDistanceMatrix::run(
       normalizedWasserstein_ = false;
       keepSubtree_ = true;
       baseModule_ = 3;
+    } else if(Backend == 6) {
+      branchDecomposition_ = true;
+      normalizedWasserstein_ = false;
+      keepSubtree_ = true;
+      baseModule_ = 4;
+    } else if(Backend == 7) {
+      branchDecomposition_ = true;
+      normalizedWasserstein_ = false;
+      keepSubtree_ = true;
+      baseModule_ = 5;
     } else {
       baseModule_ = 0;
     }
@@ -236,7 +246,7 @@ int ttkMergeTreeDistanceMatrix::run(
   execute<dataType>(intermediateTrees, intermediateTrees2, treesDistMat);
   std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
   auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-  std::cout << time/1000 << "s" << std::endl;
+  std::cout << "Execute time: " << (float)time/1000. << "s" << std::endl;
 
   // --- Create output
   auto treesDistTable = vtkTable::GetData(outputVector);
