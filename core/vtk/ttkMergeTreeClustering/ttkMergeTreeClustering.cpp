@@ -144,6 +144,11 @@ int ttkMergeTreeClustering::RequestData(vtkInformation *ttkNotUsed(request),
              "supported for Barycenter computation. Canceling computation.");
     return -1;
   }
+  if(baseModule >= 3 && ComputeBarycenter) {
+    printErr("Invalid Backend chosen. Naive Edit Distance not yet "
+             "supported for Barycenter computation. Canceling computation.");
+    return -1;
+  }
   if(Backend == 1 && ComputeBarycenter) {
     printErr("Invalid Backend chosen. Edit Distance is not yet supported for "
              "Barycenter computation. Canceling computation.");

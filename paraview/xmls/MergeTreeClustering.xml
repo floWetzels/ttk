@@ -505,6 +505,14 @@ Online examples:
                                                       mode="visibility"
                                                       property="Backend"
                                                       value="5" />
+                        <PropertyWidgetDecorator type="GenericDecorator"
+                                                      mode="visibility"
+                                                      property="Backend"
+                                                      value="6" />
+                        <PropertyWidgetDecorator type="GenericDecorator"
+                                                      mode="visibility"
+                                                      property="Backend"
+                                                      value="7" />
                       </Expression>
                       <PropertyWidgetDecorator type="GenericDecorator"
                                                     mode="visibility"

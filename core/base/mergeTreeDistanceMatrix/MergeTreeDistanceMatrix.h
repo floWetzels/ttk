@@ -143,7 +143,6 @@ namespace ttk {
                          std::vector<std::vector<double>> &distanceMatrix,
                          bool isFirstInput = true) {
 
-      std::vector<std::vector<double>> dist_times(distanceMatrix.size(),std::vector<double>(distanceMatrix.size(),0));
       for(unsigned int i = 0; i < distanceMatrix.size(); ++i) {
           // if(debugLevel_<3 and i % std::max(int(distanceMatrix.size() / 10), 1) == 0) {
           //   std::stringstream stream;
@@ -153,7 +152,7 @@ namespace ttk {
           distanceMatrix[i][i] = 0.0;
           for(unsigned int j = i + 1; j < distanceMatrix[0].size(); ++j) {
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp task firstprivate(i,j) UNTIED() shared(distanceMatrix, dist_times, trees)
+#pragma omp task firstprivate(i,j) UNTIED() shared(distanceMatrix, trees)
         {
 #endif
             // Execute
