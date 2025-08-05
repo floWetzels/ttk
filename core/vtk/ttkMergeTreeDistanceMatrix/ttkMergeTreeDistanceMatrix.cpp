@@ -240,13 +240,9 @@ int ttkMergeTreeDistanceMatrix::run(
   }
 
   // --- Call base
-  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   std::vector<std::vector<double>> treesDistMat(
     numInputs, std::vector<double>(numInputs));
   execute<dataType>(intermediateTrees, intermediateTrees2, treesDistMat);
-  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-  auto time = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-  std::cout << "Execute time: " << (float)time/1000. << "s" << std::endl;
 
   // --- Create output
   auto treesDistTable = vtkTable::GetData(outputVector);

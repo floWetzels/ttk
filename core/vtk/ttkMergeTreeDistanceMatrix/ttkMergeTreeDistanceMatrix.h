@@ -39,6 +39,11 @@
 /// Florian Wetzels, Christoph Garth. \n
 /// TopoInVis 2022.
 ///
+/// \b Related \b publication \n
+/// "Accelerating Computation of Stable Merge Tree Edit Distances Using Parameterized Heuristics" \n
+/// Florian Wetzels, Christoph Garth. \n
+/// IEEE Transactions on Visualization and Computer Graphics, 2025.
+///
 /// \sa ttk::MergeTreeDistanceMatrix
 /// \sa ttkAlgorithm
 ///

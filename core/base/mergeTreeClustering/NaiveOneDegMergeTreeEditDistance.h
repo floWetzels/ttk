@@ -137,50 +137,6 @@ namespace ttk {
         return;
       }
       //---------------------------------------------------------------------------
-      // If first tree only has one branch, try all decompositions of
-      // second tree
-      // else if(tree1->getNumberOfChildren(curr1) == 0) {
-      //   for(auto child2_mb : children2) {
-      //     dataType d_
-      //       = memT[curr1 + l1 * dim2 + child2_mb * dim3 + (l2 + 1) * dim4];
-      //     for(auto child2 : children2) {
-      //       if(child2 == child2_mb) {
-      //         continue;
-      //       }
-      //       d_ += memT[nn1 + 0 * dim2 + child2 * dim3 + 1 * dim4];
-      //     }
-      //     if(memT[curr1 + l1 * dim2 + curr2 * dim3 + l2 * dim4] == d_) {
-      //       traceMapping_path(tree1, tree2, curr1, child2_mb,
-      //                         predecessors1, predecessors2, depth1, depth2,
-      //                         memT, memLA, mapping);
-      //       return;
-      //     }
-      //   }
-      // }
-      // //---------------------------------------------------------------------------
-      // // If second tree only has one branch, try all decompositions of
-      // // first tree
-      // else if(tree2->getNumberOfChildren(curr2) == 0) {
-      //   dataType d = std::numeric_limits<dataType>::max();
-      //   for(auto child1_mb : children1) {
-      //     dataType d_
-      //       = memT[child1_mb + (l1 + 1) * dim2 + curr2 * dim3 + l2 * dim4];
-      //     for(auto child1 : children1) {
-      //       if(child1 == child1_mb) {
-      //         continue;
-      //       }
-      //       d_ += memT[child1 + 1 * dim2 + nn2 * dim3 + 0 * dim4];
-      //     }
-      //     d = std::min(d, d_);
-      //     if(memT[curr1 + l1 * dim2 + curr2 * dim3 + l2 * dim4] == d_) {
-      //       traceMapping_path(tree1, tree2, child1_mb, l1 + 1, curr2, l2,
-      //                         predecessors1, predecessors2, depth1, depth2,
-      //                         memT, memLA, mapping);
-      //       return;
-      //     }
-      //   }
-      // }
-      //---------------------------------------------------------------------------
       // If both trees have more than one branch, try all decompositions
       // of both trees
       else {
@@ -489,14 +445,14 @@ namespace ttk {
       size_t nn1 = tree1->getNumberOfNodes();
       size_t nn2 = tree2->getNumberOfNodes();
 
-      // std::cout << (nn1 + 1) * (depth1 + 1) * (nn2 + 1) * (depth2 + 1) *
-      // sizeof(dataType) << std::endl;
       std::vector<dataType> memT((nn1 + 1) * (nn2 + 1));
       std::vector<std::pair<dataType,std::vector<std::pair<ftm::idNode, ftm::idNode>>>> memLA;
       if(lookahead>0 and computeMapping_){
         memLA.resize((nn1) * (nn2),std::make_pair(-1.0,std::vector<std::pair<ftm::idNode, ftm::idNode>>()));
       }
 
+      //---------------------------------------------------------------------------
+      // fill memoization table with base cases (subtree deletions)
       memT[nn1 + nn2 * (nn1+1)] = 0;
       for(size_t i = 0; i < nn1; i++) {
         if(i==rootID1) continue;
@@ -531,6 +487,8 @@ namespace ttk {
         }
       }
 
+      //---------------------------------------------------------------------------
+      // fill memoization table with cases for two non-empty subtrees
       for(size_t i = 0; i < nn1; i++) {
         if(i==rootID1) continue;
         int curr1 = preorder1[i];
@@ -541,7 +499,9 @@ namespace ttk {
           int curr2 = preorder2[j];
           std::vector<ftm::idNode> children2;
           tree2->getChildren(curr2, children2);
-          // compute optimal lookahead mapping between children
+
+          //===============================================================================
+          // check if lookahead is necessary
           bool hasSaddleChildren1 = false;
           bool hasSaddleChildren2 = false;
           for (auto c : children1){
@@ -563,6 +523,9 @@ namespace ttk {
                               and !children1.empty() and !children2.empty()
                               and hasSaddleChildren1 and hasSaddleChildren2
                               and localLowerBound<globalUpperBound;
+
+          //===============================================================================
+          // compute optimal lookahead mapping between children if necessary
           if(useLookahead){  
             std::stack<std::pair<ftm::idNode,ftm::idNode>> s;
             std::unordered_map<ftm::idNode,ftm::idNode> right;
@@ -750,14 +713,13 @@ namespace ttk {
             // memT[curr1 + curr2 * (nn1+1)] = opt_case_cost;
             memLA[curr1+curr2*nn1] = std::make_pair(opt_case_cost,opt_case);
           }
-          // normal recursions
 
           //===============================================================================
-          // If both trees not empty, find optimal edit operation
+          // normal recursions for two non-empty subtrees
 
           //---------------------------------------------------------------------------
-          // If both trees only have one branch, return edit cost between
-          // the two branches
+          // If both trees only have one edge, return edit cost between
+          // the two edges
           if(tree1->getNumberOfChildren(curr1) == 0
               and tree2->getNumberOfChildren(curr2) == 0) {
             memT[curr1 + curr2 * (nn1+1)]
@@ -765,12 +727,11 @@ namespace ttk {
                 curr1, curr2, tree1, tree2);
           }
           //---------------------------------------------------------------------------
-          // If both trees have more than one branch, try all decompositions
-          // of both trees
+          // If both trees have more than one edge, try matching cases and deletion cases
           else {
             dataType d = std::numeric_limits<dataType>::max();
             //-----------------------------------------------------------------------
-            // ToDo
+            // Try matching both root edges and then find optimal assignment between subtrees
             if(tree1->getNumberOfChildren(curr1) <= 2
                 && tree2->getNumberOfChildren(curr2) <= 2) {
               int const child11 = children1.size()>0 ? children1[0] : nn1;
@@ -840,7 +801,7 @@ namespace ttk {
             }
             
             //-----------------------------------------------------------------------
-            // Try to look-ahead
+            // Try to match both root edges and optimal look-ahead assignment between subtrees
             if(useLookahead){
               dataType case_cost = editCost_Persistence<dataType>(curr1,curr2,tree1,tree2);
               case_cost += memLA[curr1 + curr2 * nn1].first;
@@ -866,55 +827,6 @@ namespace ttk {
                           predecessors1, predecessors2, depth1, depth2, memT, memLA,
                           *outputMatching);
 
-        // dataType cost_mapping = 0;
-        // dataType cost_ins = 0;
-        // dataType cost_del = 0;
-        // std::vector<bool> matchedNodes1(tree1->getNumberOfNodes(),false);
-        // std::vector<bool> matchedNodes2(tree2->getNumberOfNodes(),false);
-        // for(auto m : *outputMatching){
-        //   matchedNodes1[m.first.first] = true;
-        //   matchedNodes1[m.first.second] = true;
-        //   matchedNodes2[m.second.first] = true;
-        //   matchedNodes2[m.second.second] = true;
-        //   ftm::idNode cn = tree1->getParentSafe(m.first.first);
-        //   while(cn!=m.first.second){
-        //     matchedNodes1[cn] = true;
-        //     cn = tree1->getParentSafe(cn);
-        //   }
-        //   cn = tree2->getParentSafe(m.second.first);
-        //   while(cn!=m.second.second){
-        //     matchedNodes2[cn] = true;
-        //     cn = tree2->getParentSafe(cn);
-        //   }
-        //   dataType cost = editCost_Persistence<dataType>(
-        //                     m.first.first, m.first.second, m.second.first,
-        //                     m.second.second, tree1, tree2);
-        //   cost_mapping += cost;
-        //   // std::cout << "   (" << m.first.first << " " << m.first.second <<
-        //   ") - (" << m.second.first << " " << m.second.second << ") : " <<
-        //   cost << "\n";
-        // }
-        // for(ftm::idNode i=0; i<tree1->getNumberOfNodes(); i++){
-        //   if(!matchedNodes1[i]){
-        //     dataType cost = editCost_Persistence<dataType>(i,
-        //     tree1->getParentSafe(i), -1, -1, tree1, tree2);
-        //     // std::cout << "   (" << i << " " << tree1->getParentSafe(i) <<
-        //     ") - (" << -1 << " " << -1 << ") : " << cost << "\n"; cost_del +=
-        //     cost;
-        //   }
-        // }
-        // for(ftm::idNode i=0; i<tree2->getNumberOfNodes(); i++){
-        //   if(!matchedNodes2[i]){
-        //     dataType cost = editCost_Persistence<dataType>(-1, -1, i,
-        //     tree2->getParentSafe(i), tree1, tree2);
-        //     // std::cout << "   (" << -1 << " " << -1 << ") - (" << i << " "
-        //     << tree2->getParentSafe(i) << ") : " << cost << "\n"; cost_ins +=
-        //     cost;
-        //   }
-        // }
-        // // std::cout << res << " " << cost_mapping+cost_ins+cost_del <<
-        // std::endl;
-        // // std::cout << res << " " << cost_mapping << std::endl;
       }
 
       return squared_ ? std::sqrt(res) : res;
@@ -954,82 +866,6 @@ namespace ttk {
 
       return computeDistance<dataType>(tree1, tree2, outputMatching);
     }
-
-  //   template <class dataType>
-  //   dataType
-  //     computeDistance(ftm::FTMTree_MT *tree1,
-  //                     ftm::FTMTree_MT *tree2,
-  //                     std::vector<std::tuple<ftm::idNode, ftm::idNode, double>>
-  //                       *outputMatching) {
-
-  //     std::vector<std::vector<ftm::idNode>> children1(tree1->getNumberOfNodes());
-  //     std::vector<ftm::idNode> parents1(tree1->getNumberOfNodes());
-  //     for(ftm::idNode nIdx=0; nIdx<tree1->getNumberOfNodes(); nIdx++){
-  //       tree1->getChildren(nIdx,children1[nIdx]);
-  //       parents1[nIdx] = tree1->getParentSafe(nIdx);
-  //     }
-  //     std::vector<std::vector<ftm::idNode>> children2(tree2->getNumberOfNodes());
-  //     std::vector<ftm::idNode> parents2(tree2->getNumberOfNodes());
-  //     for(ftm::idNode nIdx=0; nIdx<tree2->getNumberOfNodes(); nIdx++){
-  //       tree2->getChildren(nIdx,children2[nIdx]);
-  //       parents2[nIdx] = tree2->getParentSafe(nIdx);
-  //     }
-
-  //     std::vector<int> matchedNodes(tree1->getNumberOfNodes(), -1);
-  //     std::vector<std::pair<std::pair<ftm::idNode, ftm::idNode>,
-  //                           std::pair<ftm::idNode, ftm::idNode>>>
-  //       mapping;
-  //     dataType res = computeDistance<dataType>(tree1, tree2, &mapping);
-  //     if(computeMapping_ && outputMatching) {
-  //       outputMatching->clear();
-  //       for(auto m : mapping) {
-  //         matchedNodes[m.first.first] = m.second.first;
-  //         if(m.first.second==tree1->getRoot())
-  //           matchedNodes[m.first.second] = m.second.second;
-  //       }
-  //       for(ftm::idNode i = 0; i < matchedNodes.size(); i++) {
-  //         if(matchedNodes[i] >= 0)
-  //           outputMatching->emplace_back(
-  //             std::make_tuple(i, matchedNodes[i], 0.0));
-  //       }
-  //     }
-
-  //     return res;
-  //   }
-
-  //   template <class dataType>
-  //   dataType execute(ftm::MergeTree<dataType> &mTree1,
-  //                    ftm::MergeTree<dataType> &mTree2,
-  //                    std::vector<std::tuple<ftm::idNode, ftm::idNode, double>>
-  //                      *outputMatching) {
-
-  //     ftm::MergeTree<dataType> mTree1Copy;
-  //     ftm::MergeTree<dataType> mTree2Copy;
-  //     if(saveTree_) {
-  //       mTree1Copy = ftm::copyMergeTree<dataType>(mTree1);
-  //       mTree2Copy = ftm::copyMergeTree<dataType>(mTree2);
-  //     }
-  //     ftm::MergeTree<dataType> &mTree1Int = (saveTree_ ? mTree1Copy : mTree1);
-  //     ftm::MergeTree<dataType> &mTree2Int = (saveTree_ ? mTree2Copy : mTree2);
-  //     ftm::FTMTree_MT *tree1 = &(mTree1Int.tree);
-  //     ftm::FTMTree_MT *tree2 = &(mTree2Int.tree);
-
-  //     // optional preprocessing
-  //     if(preprocess_) {
-  //       treesNodeCorr_.resize(2);
-  //       preprocessingPipeline<dataType>(
-  //         mTree1Int, epsilonTree1_, epsilon2Tree1_, epsilon3Tree1_, false,
-  //         useMinMaxPair_, cleanTree_, treesNodeCorr_[0], true, true);
-  //       preprocessingPipeline<dataType>(
-  //         mTree2Int, epsilonTree2_, epsilon2Tree2_, epsilon3Tree2_, false,
-  //         useMinMaxPair_, cleanTree_, treesNodeCorr_[1], true, true);
-  //     }
-
-  //     tree1 = &(mTree1Int.tree);
-  //     tree2 = &(mTree2Int.tree);
-
-  //     return computeDistance<dataType>(tree1, tree2, outputMatching);
-  //   }
 
     template <class dataType>
     dataType computeDistance(ftm::FTMTree_MT *tree1, ftm::FTMTree_MT *tree2) {

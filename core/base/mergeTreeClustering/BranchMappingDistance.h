@@ -659,32 +659,6 @@ namespace ttk {
             linkedNodes2[m.second.first] = m.second.second;
             linkedNodes2[m.second.second] = m.second.first;
           }
-          // dataType cost = this->baseMetric_ == 0 ?
-          // editCost_Wasserstein1<dataType>(
-          //                   m.first.first, m.first.second, m.second.first,
-          //                   m.second.second, tree1, tree2)
-          //                 : this->baseMetric_ == 1 ?
-          //                 editCost_Wasserstein2<dataType>(
-          //                     m.first.first, m.first.second, m.second.first,
-          //                     m.second.second, tree1, tree2)
-          //                 : this->baseMetric_ == 2
-          //                   ? editCost_Persistence<dataType>(
-          //                     m.first.first, m.first.second, m.second.first,
-          //                     m.second.second, tree1, tree2)
-          //                   : editCost_Shifting<dataType>(
-          //                     m.first.first, m.first.second, m.second.first,
-          //                     m.second.second, tree1, tree2);
-          // dataType cost_ = editCost_Wasserstein1<dataType>(
-          //                   m.first.first, m.first.second, m.second.first,
-          //                   m.second.second, tree1, tree2);
-          // cost_mapping += cost_;
-          // std::cout << "(" << m.first.first << " " << m.first.second << ") -
-          // (" << m.second.first << " " << m.second.second << ") : " << cost <<
-          // " " << cost_;// << std::endl; std::cout << ";        (" <<
-          // tree1->getValue<dataType>(m.first.first) << " " <<
-          // tree1->getValue<dataType>(m.first.second) << ") - (" <<
-          // tree2->getValue<dataType>(m.second.first) << " " <<
-          // tree2->getValue<dataType>(m.second.second) << ")" << std::endl;
           if(m.first.first == -1)
             continue;
           if(m.first.second == -1)
@@ -696,21 +670,12 @@ namespace ttk {
           matchedNodes[m.first.first] = m.second.first;
           matchedNodes[m.first.second] = m.second.second;
         }
-        // std::cout << "Pairs Tree 1:\n";
-        // for(int i=0; i<linkedNodes1.size(); i++){
-        //   std::cout << i << ": " << linkedNodes1[i] << std::endl;
-        // }
-        // std::cout << "Pairs Tree 2:\n";
-        // for(int i=0; i<linkedNodes2.size(); i++){
-        //   std::cout << i << ": " << linkedNodes2[i] << std::endl;
-        // }
         for(ftm::idNode i = 0; i < matchedNodes.size(); i++) {
           if(matchedNodes[i] >= 0)
             outputMatching->emplace_back(
               std::make_tuple(i, matchedNodes[i], 0.0));
         }
 
-        // std::cout << res << " " << cost_mapping << std::endl;
       }
 
       return squared_ ? std::sqrt(res) : res;

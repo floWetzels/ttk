@@ -533,8 +533,6 @@ namespace ttk {
       size_t const dim4 = (nn2 + 1) * dim3;
       // Timer t_dyn;
 
-      // std::cout << (nn1 + 1) * (depth1 + 1) * (nn2 + 1) * (depth2 + 1) *
-      // sizeof(dataType) << std::endl;
       std::vector<dataType> memT((nn1 + 1) * (depth1 + 1) * (nn2 + 1)
                                  * (depth2 + 1));
       std::vector<std::pair<dataType,std::vector<std::pair<ftm::idNode, ftm::idNode>>>> memLA;
@@ -542,6 +540,8 @@ namespace ttk {
         memLA.resize((nn1) * (nn2),std::make_pair(-1.0,std::vector<std::pair<ftm::idNode, ftm::idNode>>()));
       }
 
+      //---------------------------------------------------------------------------
+      // fill memoization table with base cases (subtree deletions)
       memT[nn1 + 0 * dim2 + nn2 * dim3 + 0 * dim4] = 0;
       for(size_t i = 0; i < nn1; i++) {
         int curr1 = preorder1[i];
@@ -582,6 +582,8 @@ namespace ttk {
         }
       }
 
+      //---------------------------------------------------------------------------
+      // fill memoization table with cases for two non-empty subtrees
       for(size_t i = 0; i < nn1; i++) {
         int curr1 = preorder1[i];
         std::vector<ftm::idNode> children1;
@@ -590,7 +592,9 @@ namespace ttk {
           int curr2 = preorder2[j];
           std::vector<ftm::idNode> children2;
           tree2->getChildren(curr2, children2);
-          // compute optimal lookahead mapping between children
+          
+          //===============================================================================
+          // check if lookahead is necessary
           bool hasSaddleChildren1 = false;
           bool hasSaddleChildren2 = false;
           for (auto c : children1){
@@ -612,6 +616,9 @@ namespace ttk {
                               and !children1.empty() and !children2.empty()
                               and hasSaddleChildren1 and hasSaddleChildren2
                               and localLowerBound<globalUpperBound;
+
+          //===============================================================================
+          // compute optimal lookahead mapping between children if necessary
           if(useLookahead){  
             std::stack<std::pair<ftm::idNode,ftm::idNode>> s;
             std::unordered_map<ftm::idNode,ftm::idNode> right;
@@ -799,7 +806,9 @@ namespace ttk {
             memT[curr1 + 0 * dim2 + curr2 * dim3 + 0 * dim4] = opt_case_cost;
             memLA[curr1+curr2*nn1] = std::make_pair(opt_case_cost,opt_case);
           }
-          // normal recursions
+
+          //===============================================================================
+          // normal recursions for two non-empty subtrees
           for(size_t l1 = 1; l1 <= predecessors1[preorder1[i]].size(); l1++) {
             int parent1
               = predecessors1[preorder1[i]]
@@ -809,12 +818,9 @@ namespace ttk {
                 = predecessors2[preorder2[j]]
                                [predecessors2[preorder2[j]].size() - l2];
 
-              //===============================================================================
-              // If both trees not empty, find optimal edit operation
-
               //---------------------------------------------------------------------------
-              // If both trees only have one branch, return edit cost between
-              // the two branches
+              // If both trees only have one edge, return edit cost between
+              // the two edges
               if(tree1->getNumberOfChildren(curr1) == 0
                  and tree2->getNumberOfChildren(curr2) == 0) {
                 memT[curr1 + l1 * dim2 + curr2 * dim3 + l2 * dim4]
@@ -822,8 +828,7 @@ namespace ttk {
                     curr1, parent1, curr2, parent2, tree1, tree2);
               }
               //---------------------------------------------------------------------------
-              // If first tree only has one branch, try all decompositions of
-              // second tree
+              // If first tree only has one edge, match it to a branch in second tree
               else if(tree1->getNumberOfChildren(curr1) == 0) {
                 dataType d = std::numeric_limits<dataType>::max();
                 for(auto child2_mb : children2) {
@@ -840,8 +845,7 @@ namespace ttk {
                 memT[curr1 + l1 * dim2 + curr2 * dim3 + l2 * dim4] = d;
               }
               //---------------------------------------------------------------------------
-              // If second tree only has one branch, try all decompositions of
-              // first tree
+              // If second tree only has one edge, match it to a branch in first tree
               else if(tree2->getNumberOfChildren(curr2) == 0) {
                 dataType d = std::numeric_limits<dataType>::max();
                 for(auto child1_mb : children1) {
@@ -858,14 +862,11 @@ namespace ttk {
                 memT[curr1 + l1 * dim2 + curr2 * dim3 + l2 * dim4] = d;
               }
               //---------------------------------------------------------------------------
-              // If both trees have more than one branch, try all decompositions
-              // of both trees
+              // If both trees have more than one edge, try matching cases and deletion cases
               else {
                 dataType d = std::numeric_limits<dataType>::max();
                 //-----------------------------------------------------------------------
-                // Try all possible main branches of first tree (child1_mb) and
-                // all possible main branches of second tree (child2_mb) Then
-                // try all possible matchings of subtrees
+                // Try matching both root edges and then find optimal assignment between subtrees
                 if(tree1->getNumberOfChildren(curr1) == 2
                    && tree2->getNumberOfChildren(curr2) == 2) {
                   int const child11 = children1[0];
@@ -935,16 +936,14 @@ namespace ttk {
                 }
                 
                 //-----------------------------------------------------------------------
-                // Try to look-ahead
+                // Try to match both root edges and optimal look-ahead assignment between subtrees
                 if(useLookahead){
                   dataType case_cost = editCost_Persistence<dataType>(curr1,parent1,curr2,parent2, tree1, tree2);
                   case_cost += memT[curr1 + 0 * dim2 + curr2 * dim3 + 0 * dim4];
                   d = std::min(d, case_cost);
                 }
                 //-----------------------------------------------------------------------
-                // Try to continue main branch on one child of first tree and
-                // delete all other subtrees Then match continued branch to
-                // current branch in second tree
+                // Try to delete all but one subtree in first tree and map remainder it to second tree
                 for(auto child1_mb : children1) {
                   dataType d_ = memT[child1_mb + (l1 + 1) * dim2 + curr2 * dim3
                                      + l2 * dim4];
@@ -957,9 +956,7 @@ namespace ttk {
                   d = std::min(d, d_);
                 }
                 //-----------------------------------------------------------------------
-                // Try to continue main branch on one child of second tree and
-                // delete all other subtrees Then match continued branch to
-                // current branch in first tree
+                // Try to delete all but one subtree in second tree and map remainder it to first tree
                 for(auto child2_mb : children2) {
                   dataType d_ = memT[curr1 + l1 * dim2 + child2_mb * dim3
                                      + (l2 + 1) * dim4];
@@ -1002,55 +999,6 @@ namespace ttk {
                           predecessors1, predecessors2, depth1, depth2, memT, memLA,
                           *outputMatching);
 
-        // dataType cost_mapping = 0;
-        // dataType cost_ins = 0;
-        // dataType cost_del = 0;
-        // std::vector<bool> matchedNodes1(tree1->getNumberOfNodes(),false);
-        // std::vector<bool> matchedNodes2(tree2->getNumberOfNodes(),false);
-        // for(auto m : *outputMatching){
-        //   matchedNodes1[m.first.first] = true;
-        //   matchedNodes1[m.first.second] = true;
-        //   matchedNodes2[m.second.first] = true;
-        //   matchedNodes2[m.second.second] = true;
-        //   ftm::idNode cn = tree1->getParentSafe(m.first.first);
-        //   while(cn!=m.first.second){
-        //     matchedNodes1[cn] = true;
-        //     cn = tree1->getParentSafe(cn);
-        //   }
-        //   cn = tree2->getParentSafe(m.second.first);
-        //   while(cn!=m.second.second){
-        //     matchedNodes2[cn] = true;
-        //     cn = tree2->getParentSafe(cn);
-        //   }
-        //   dataType cost = editCost_Persistence<dataType>(
-        //                     m.first.first, m.first.second, m.second.first,
-        //                     m.second.second, tree1, tree2);
-        //   cost_mapping += cost;
-        //   // std::cout << "   (" << m.first.first << " " << m.first.second <<
-        //   ") - (" << m.second.first << " " << m.second.second << ") : " <<
-        //   cost << "\n";
-        // }
-        // for(ftm::idNode i=0; i<tree1->getNumberOfNodes(); i++){
-        //   if(!matchedNodes1[i]){
-        //     dataType cost = editCost_Persistence<dataType>(i,
-        //     tree1->getParentSafe(i), -1, -1, tree1, tree2);
-        //     // std::cout << "   (" << i << " " << tree1->getParentSafe(i) <<
-        //     ") - (" << -1 << " " << -1 << ") : " << cost << "\n"; cost_del +=
-        //     cost;
-        //   }
-        // }
-        // for(ftm::idNode i=0; i<tree2->getNumberOfNodes(); i++){
-        //   if(!matchedNodes2[i]){
-        //     dataType cost = editCost_Persistence<dataType>(-1, -1, i,
-        //     tree2->getParentSafe(i), tree1, tree2);
-        //     // std::cout << "   (" << -1 << " " << -1 << ") - (" << i << " "
-        //     << tree2->getParentSafe(i) << ") : " << cost << "\n"; cost_ins +=
-        //     cost;
-        //   }
-        // }
-        // // std::cout << res << " " << cost_mapping+cost_ins+cost_del <<
-        // std::endl;
-        // // std::cout << res << " " << cost_mapping << std::endl;
       }
 
       return squared_ ? std::sqrt(res) : res;
